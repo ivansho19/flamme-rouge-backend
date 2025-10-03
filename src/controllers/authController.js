@@ -10,7 +10,7 @@ const parserId = (id) => {
 
 // Registro de usuario
 export const registerUser = async (req, res) => {
-  const { name, email, password } = req.body;
+  const { name, lastName, email, password } = req.body;
 
   try {
     const userExists = await User.findOne({ email });
@@ -20,13 +20,14 @@ export const registerUser = async (req, res) => {
 
     const user = await User.create({
       name,
+      lastName,
       email,
       password: hashedPassword
     });
 
     res.status(201).json({
       _id: user.id,
-      name: user.name,
+      name: user.name + " " + user.lastName,
       email: user.email,
       token: generateToken(user._id)
     });
@@ -94,8 +95,7 @@ export const updateUser = async (req, res) => {
 
 // Registro de Clientes
 export const registerClient = async (req, res) => {
-  const { name, email, password, country, city, gender, phone  } = req.body;
-
+  const { name, lastName, email, password, country, city, gender, phone  } = req.body;
   try {
     const clientExists = await Client.findOne({ email });
     if (clientExists) return res.status(400).json({ message: "Cliente ya existe" });
@@ -104,6 +104,7 @@ export const registerClient = async (req, res) => {
 
     const client = await Client.create({
       name,
+      lastName,
       email,
       password: hashedPassword,
       country,
@@ -114,12 +115,13 @@ export const registerClient = async (req, res) => {
 
     res.status(201).json({
       _id: client.id,
-      name: client.name,
+      name: client.name + " " + client.lastName,
       email: client.email,
       token: generateToken(client._id),
       country: client.country
     });
   } catch (error) {
+    console.log("Error en registerClient:", error);
     res.status(500).json({ message: "Error en el servidor" });
   }
 };
