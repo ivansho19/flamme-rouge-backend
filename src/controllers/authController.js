@@ -1,4 +1,3 @@
-
 import bcrypt from "bcryptjs";
 import User from "../models/User.js";
 import Client from "../models/Client.js";
@@ -184,23 +183,39 @@ export const updateClient = async (req, res) => {
   }
 };
 
-// Login de usuario
-export const loginUser = async (req, res) => {
+// Login
+export const login = async (req, res) => {
   const { email, password } = req.body;
 
   try {
     const user = await User.findOne({ email });
-    if (!user) return res.status(400).json({ message: "Credenciales inválidas" });
+    const clients = await Client.findOne({ email });
+    if (!user && !clients) return res.status(400).json({ message: "Credenciales inválidas" });
 
-    const match = await bcrypt.compare(password, user.password);
-    if (!match) return res.status(400).json({ message: "Credenciales inválidas" });
+    const matchUser = user ? await bcrypt.compare(password, user.password) : false;
+    const matchClients = clients ? await bcrypt.compare(password, clients.password) : false;
+    if (!matchUser && !matchClients) return res.status(400).json({ message: "Credenciales inválidas" });
 
-    res.json({
-      _id: user.id,
-      name: user.name,
-      email: user.email,
-      token: generateToken(user._id)
-    });
+    let responseUser = null;
+    if (matchUser && user) {
+      responseUser = {
+        _id: user.id,
+        name: user.name,
+        email: user.email,
+        user: true,
+        token: generateToken(user._id)
+      };
+    } else if (matchClients && clients) {
+      responseUser = {
+        _id: clients.id,
+        name: clients.name,
+        email: clients.email,
+        client: true,
+        token: generateToken(clients._id)
+      };
+    }
+    if (!responseUser) return res.status(400).json({ message: "Credenciales inválidas" });
+    res.json(responseUser);
   } catch (error) {
     res.status(500).json({ message: "Error en el servidor" });
   }
