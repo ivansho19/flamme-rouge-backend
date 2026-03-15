@@ -116,8 +116,7 @@ export const registerClient = async (req, res) => {
       _id: client.id,
       name: client.name + " " + client.lastName,
       email: client.email,
-      token: generateToken(client._id),
-      country: client.country
+      token: generateToken(client._id)
     });
   } catch (error) {
     console.log("Error en registerClient:", error);
@@ -136,7 +135,10 @@ export const getClientByEmail = async (req, res) => {
       _id: client.id,
       name: client.name,
       email: client.email,
-      // Puedes agregar más campos si es necesario
+      country: client.country,
+      city: client.city,
+      gender: client.gender,
+      phone: client.phone
     });
   } catch (error) {
     console.log("Error en getClientByEmail:", error);
