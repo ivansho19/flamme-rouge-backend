@@ -4,9 +4,6 @@ import authRoutes from "./routes/authRoutes.js";
 import paymentRoutes from './routes/paymentRoutes.js';
 import profilesRoutes from "./routes/profilesRoutes.js";
 
-dotenv.config();
-connectDB();
-
 const app = express();
 
 app.use(cors());
