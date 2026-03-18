@@ -1,4 +1,4 @@
-const mongoose = require('mongoose');
+import mongoose from "mongoose";
 
 const ImageSchema = new mongoose.Schema({
   url: {
@@ -91,4 +91,4 @@ const ProfileSchema = new mongoose.Schema({
   timestamps: true
 });
 
-module.exports = mongoose.model('Profile', ProfileSchema);
+export default mongoose.model("Profile", ProfileSchema);

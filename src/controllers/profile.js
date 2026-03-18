@@ -14,47 +14,44 @@ export const registerProfile = async (req, res) => {
     bio,
     phone,
     city,
-    availabity,
+    availability,
     gender,
     age,
     nationality,
     height,
     weight,
-    haircolor,
-    eyecolor,
-    language,
+    hairColor,
+    eyeColor,
+    languages,
     isPremium,
-    imagesMain, 
-    imagesGallery 
-    } = req.body;
+    imagesMain,
+    imagesGallery
+  } = req.body;
 
   try {
-
-
-    // Crear perfil asociado
     const profile = await Profile.create({
       objectId,
       displayName,
       bio,
       phone,
       city,
-      availabity,
+      availability,
       gender,
       age,
       nationality,
       height,
       weight,
-      haircolor,
-      eyecolor,
-      language,
+      hairColor,
+      eyeColor,
+      languages,
       isPremium,
-      imagesMain, 
-      imagesGallery 
+      imagesMain,
+      imagesGallery
     });
 
     res.status(201).json({
       profile: {
-        _id: profile.objectId,
+        _id: profile._id,
         displayName: profile.displayName
       },
       profile
@@ -72,20 +69,21 @@ export const getProfileByID = async (req, res) => {
     const profile = await Profile.findById(id);
     if (!profile) return res.status(404).json({ message: "Perfil no encontrado" });
     res.status(200).json({
-      _id: profile.objectId,
+      _id: profile._id,
+      objectId: profile.objectId,
       displayName: profile.displayName,
       bio: profile.bio,
       phone: profile.phone,
       city: profile.city,
-      availabity: profile.availabity,
+      availability: profile.availability,
       gender: profile.gender,
       age: profile.age,
       nationality: profile.nationality,
       height: profile.height,
       weight: profile.weight,
-      haircolor: profile.haircolor,
-      eyecolor: profile.eyecolor,
-      language: profile.language,
+      hairColor: profile.hairColor,
+      eyeColor: profile.eyeColor,
+      languages: profile.languages,
       isPremium: profile.isPremium,
       imagesGallery: profile.imagesGallery,
       imagesMain: profile.imagesMain
