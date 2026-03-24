@@ -1,6 +1,6 @@
 
+import mongoose from "mongoose";
 import Profile from "../models/profile.js";
-import Client from "../models/Client.js";
 
 const parserId = (id) => {
   return mongoose.Types.ObjectId(id);
@@ -23,7 +23,7 @@ export const registerProfile = async (req, res) => {
     hairColor,
     eyeColor,
     languages,
-    isPremium,
+    plan,
     imagesMain,
     imagesGallery
   } = req.body;
@@ -44,7 +44,7 @@ export const registerProfile = async (req, res) => {
       hairColor,
       eyeColor,
       languages,
-      isPremium,
+      plan,
       imagesMain,
       imagesGallery
     });
@@ -84,7 +84,7 @@ export const getProfileByID = async (req, res) => {
       hairColor: profile.hairColor,
       eyeColor: profile.eyeColor,
       languages: profile.languages,
-      isPremium: profile.isPremium,
+      plan: profile.plan,
       imagesGallery: profile.imagesGallery,
       imagesMain: profile.imagesMain
     });
@@ -121,7 +121,7 @@ export const updateProfile = async (req, res) => {
     haircolor,
     eyecolor,
     language,
-    isPremium,
+    plan,
     imagesMain,
     imagesGallery
   } = req.body;
@@ -145,7 +145,7 @@ export const updateProfile = async (req, res) => {
         haircolor,
         eyecolor,
         language,
-        isPremium,
+        plan,
         imagesMain,
         imagesGallery,
         updatedAt: Date.now()
@@ -160,5 +160,65 @@ export const updateProfile = async (req, res) => {
     res.status(200).json({ message: "Perfil actualizado correctamente" });
   } catch (error) {
     res.status(500).json({ message: "Error al actualizar el perfil", error: error.message });
+  }
+};
+
+
+// Buscar profile por cualquiera de sus campos
+export const searchProfiles = async (req, res) => {
+  const { query } = req.query; // El término de búsqueda
+
+  if (!query || !query.toString().trim()) {
+    return res.status(400).json({ message: "El parámetro 'query' es obligatorio" });
+  }
+
+  try {
+    const schemaPaths = Profile.schema.paths;
+
+    const fieldCandidates = [
+      "displayName",
+      "nationality",
+      "city",
+      "availability",
+      "gender",
+      "languages",
+      "age",
+      "height",
+      "weight"
+    ];
+
+    const orClauses = [];
+    const normalizedQuery = query.toString();
+    const numericValue = Number(normalizedQuery);
+    const isNumericQuery = !Number.isNaN(numericValue);
+
+    for (const field of fieldCandidates) {
+      const path = schemaPaths[field];
+      if (!path) continue;
+
+      const fieldType = path.instance; // String, Number, Array, ObjectID, etc.
+
+      if (fieldType === "String") {
+        orClauses.push({ [field]: { $regex: normalizedQuery, $options: "i" } });
+      } else if (fieldType === "Number") {
+        if (isNumericQuery) {
+          orClauses.push({ [field]: numericValue });
+        }
+      } else if (fieldType === "Array") {
+        // asume arrays de String (availability, languages)
+        orClauses.push({ [field]: { $in: [new RegExp(normalizedQuery, "i")] } });
+      }
+    }
+
+    if (!orClauses.length) {
+      return res.status(200).json([]);
+    }
+
+    const profiles = await Profile.find({ $or: orClauses });
+
+    res.status(200).json(profiles);
+  } catch (error) {
+    console.log("Error en searchProfiles:", error);
+    res.status(500).json({ message: "Error en el servidor" });
   }
 };

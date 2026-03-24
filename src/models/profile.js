@@ -72,9 +72,9 @@ const ProfileSchema = new mongoose.Schema({
     type: [String]
   },
 
-  isPremium: {
-    type: Boolean,
-    default: false
+  plan: {
+    type: Number,
+    default: 0
   },
 
   imagesMain: {
