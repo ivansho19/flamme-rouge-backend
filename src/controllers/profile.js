@@ -97,7 +97,7 @@ export const getProfileByID = async (req, res) => {
 // Buscar todos los profiles
 export const getAllProfiles = async (req, res) => {
   try {
-    const profiles = await Profile.find().sort({ createdAt: -1 });
+    const profiles = await Profile.find().sort({ plan: -1});
     res.status(200).json(profiles);
   } catch (error) {
     console.log("Error en getAllProfiles:", error);
