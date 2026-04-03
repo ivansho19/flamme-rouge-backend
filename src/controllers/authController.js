@@ -94,7 +94,7 @@ export const updateUser = async (req, res) => {
 
 // Registro de Clientes
 export const registerClient = async (req, res) => {
-  const { name, lastName, email, password, country, city, gender, phone  } = req.body;
+  const { name, lastName, email, password } = req.body;
   try {
     const clientExists = await Client.findOne({ email });
     if (clientExists) return res.status(400).json({ message: "Cliente ya existe" });
@@ -105,11 +105,7 @@ export const registerClient = async (req, res) => {
       name,
       lastName,
       email,
-      password: hashedPassword,
-      country,
-      city,
-      gender,
-      phone
+      password: hashedPassword
     });
 
     res.status(201).json({
