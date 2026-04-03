@@ -1,5 +1,5 @@
 import express from "express";
-import { registerProfile, updateProfile, getProfileByID, getAllProfiles, searchProfiles } from "../controllers/profile.js";
+import { registerProfile, updateProfile, getProfileByID, getAllProfiles, searchProfiles, getProfileByUserId } from "../controllers/profile.js";
 
 const router = express.Router();
 
@@ -8,6 +8,7 @@ router.post("/createProfile", registerProfile);
 router.get("/searchProfiles", searchProfiles);  
 router.put("/updateProfile/:id", updateProfile);
 router.get("/getProfile/:id", getProfileByID);
+router.get("/getProfileByUser/:userId", getProfileByUserId);
 router.get("/getAllProfiles", getAllProfiles);
 
 

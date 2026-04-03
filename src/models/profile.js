@@ -32,8 +32,16 @@ const ProfileSchema = new mongoose.Schema({
     type: String
   },
 
+  country: {
+    type: String
+  },
+
   city: {
     type: String
+  },
+
+  birthDate: {
+    type: Date
   },
 
   availability: {
@@ -85,7 +93,11 @@ const ProfileSchema = new mongoose.Schema({
   imagesGallery: {
     type: [ImageSchema],
     default: []
-  }
+  },
+   posibilities: {
+    type: [String],
+    required: false
+  },
 
 }, {
   timestamps: true

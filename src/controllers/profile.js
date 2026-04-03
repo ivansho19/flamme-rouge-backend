@@ -13,6 +13,7 @@ export const registerProfile = async (req, res) => {
     displayName,
     bio,
     phone,
+    country,
     city,
     availability,
     gender,
@@ -25,7 +26,8 @@ export const registerProfile = async (req, res) => {
     languages,
     plan,
     imagesMain,
-    imagesGallery
+    imagesGallery,
+    posibilities
   } = req.body;
 
   try {
@@ -34,6 +36,7 @@ export const registerProfile = async (req, res) => {
       displayName,
       bio,
       phone,
+      country,
       city,
       availability,
       gender,
@@ -46,7 +49,8 @@ export const registerProfile = async (req, res) => {
       languages,
       plan,
       imagesMain,
-      imagesGallery
+      imagesGallery,
+      posibilities
     });
 
     res.status(201).json({
@@ -62,34 +66,51 @@ export const registerProfile = async (req, res) => {
 };
 
 
+const mapProfileResponse = (profile) => ({
+  _id: profile._id,
+  objectId: profile.objectId,
+  displayName: profile.displayName,
+  bio: profile.bio,
+  phone: profile.phone,
+  city: profile.city,
+  country: profile.country,
+  availability: profile.availability,
+  gender: profile.gender,
+  age: profile.age,
+  nationality: profile.nationality,
+  height: profile.height,
+  weight: profile.weight,
+  hairColor: profile.hairColor,
+  eyeColor: profile.eyeColor,
+  languages: profile.languages,
+  plan: profile.plan,
+  imagesGallery: profile.imagesGallery,
+  imagesMain: profile.imagesMain,
+  birthDate: profile.birthDate,
+  posibilities: profile.posibilities
+});
+
 // Buscar profile por ID
 export const getProfileByID = async (req, res) => {
   const { id } = req.params;
   try {
     const profile = await Profile.findById(id);
     if (!profile) return res.status(404).json({ message: "Perfil no encontrado" });
-    res.status(200).json({
-      _id: profile._id,
-      objectId: profile.objectId,
-      displayName: profile.displayName,
-      bio: profile.bio,
-      phone: profile.phone,
-      city: profile.city,
-      availability: profile.availability,
-      gender: profile.gender,
-      age: profile.age,
-      nationality: profile.nationality,
-      height: profile.height,
-      weight: profile.weight,
-      hairColor: profile.hairColor,
-      eyeColor: profile.eyeColor,
-      languages: profile.languages,
-      plan: profile.plan,
-      imagesGallery: profile.imagesGallery,
-      imagesMain: profile.imagesMain
-    });
+    res.status(200).json(mapProfileResponse(profile));
   } catch (error) {
     console.log("Error en getProfileByID:", error);
+    res.status(500).json({ message: "Error en el servidor" });
+  }
+};
+
+// GET /getProfileByUser/:userId
+export const getProfileByUserId = async (req, res) => {
+  const { userId } = req.params;
+  try {
+    const profile = await Profile.findOne({ objectId: userId });
+    if (!profile) return res.status(404).json({ message: "Perfil no encontrado" });
+    res.status(200).json(mapProfileResponse(profile));
+  } catch (error) {
     res.status(500).json({ message: "Error en el servidor" });
   }
 };
@@ -112,16 +133,19 @@ export const updateProfile = async (req, res) => {
     bio,
     phone,
     city,
-    availabity,
+    country,
+    availability,
     gender,
     age,
     nationality,
     height,
     weight,
-    haircolor,
-    eyecolor,
-    language,
+    hairColor,
+    eyeColor,
+    birthDate,
+    languages,
     plan,
+    posibilities,
     imagesMain,
     imagesGallery
   } = req.body;
@@ -136,18 +160,21 @@ export const updateProfile = async (req, res) => {
         bio,
         phone,
         city,
-        availabity,
+        country,
+        availability,
         gender,
         age,
         nationality,
         height,
         weight,
-        haircolor,
-        eyecolor,
-        language,
+        hairColor,
+        eyeColor,
+        languages,
         plan,
+        birthDate,
         imagesMain,
         imagesGallery,
+        posibilities,
         updatedAt: Date.now()
       },
       { new: true }
