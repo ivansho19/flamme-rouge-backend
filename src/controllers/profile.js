@@ -1,6 +1,7 @@
 
 import mongoose from "mongoose";
 import Profile from "../models/profile.js";
+import IdentifyKYC from "../models/identifyKYC.js";
 
 const parserId = (id) => {
   return mongoose.Types.ObjectId(id);
@@ -15,8 +16,10 @@ export const registerProfile = async (req, res) => {
     phone,
     country,
     city,
+    zone,
     availability,
     gender,
+    orientation,
     age,
     nationality,
     height,
@@ -38,8 +41,10 @@ export const registerProfile = async (req, res) => {
       phone,
       country,
       city,
+      zone,
       availability,
       gender,
+      orientation,
       age,
       nationality,
       height,
@@ -87,7 +92,9 @@ const mapProfileResponse = (profile) => ({
   imagesGallery: profile.imagesGallery,
   imagesMain: profile.imagesMain,
   birthDate: profile.birthDate,
-  posibilities: profile.posibilities
+  posibilities: profile.posibilities,
+  zone: profile.zone,
+  orientation: profile.orientation
 });
 
 // Buscar profile por ID
@@ -134,8 +141,10 @@ export const updateProfile = async (req, res) => {
     phone,
     city,
     country,
+    zone,
     availability,
     gender,
+    orientation,
     age,
     nationality,
     height,
@@ -161,8 +170,10 @@ export const updateProfile = async (req, res) => {
         phone,
         city,
         country,
+        zone,
         availability,
         gender,
+        orientation,
         age,
         nationality,
         height,
@@ -206,6 +217,7 @@ export const searchProfiles = async (req, res) => {
       "displayName",
       "nationality",
       "city",
+      "zone",
       "availability",
       "gender",
       "languages",
@@ -247,5 +259,99 @@ export const searchProfiles = async (req, res) => {
   } catch (error) {
     console.log("Error en searchProfiles:", error);
     res.status(500).json({ message: "Error en el servidor" });
+  }
+};
+
+// ==========================================
+// CREATE: Crear perfil KYC
+// ==========================================
+export const createKYC = async (req, res) => {
+  const {
+    userId,
+    fullName,
+    age,
+    nationality,
+    phone,
+    email,
+    documentId
+  } = req.body;
+
+  const existingKYC = await IdentifyKYC.findOne({ userId });
+    if (existingKYC) {
+      return res.status(400).json({ error: 'El usuario ya tiene un perfil KYC.' });
+    }
+
+  try {
+    const newKYC = await IdentifyKYC.create({
+      userId,
+      fullName,
+      age,
+      nationality,
+      phone,
+      email,
+      documentId
+    });
+
+    res.status(201).json({ message: 'KYC guardado exitosamente', data: newKYC });
+  } catch (error) {
+    if (error.code === 11000) {
+      return res.status(400).json({ error: 'Este documento ya está registrado.' });
+    }
+    res.status(500).json({ error: 'Error al procesar el KYC.', detalle: error.message });
+  }
+};
+
+// ==========================================
+// READ: Obtener el KYC del usuario
+// ==========================================
+export const getKYC = async (req, res) => {
+  try {
+    const kyc = await IdentifyKYC.findOne({ userId: req.userId });
+    if (!kyc) return res.status(404).json({ error: 'Perfil KYC no encontrado.' });
+    res.json({ data: kyc });
+  } catch (error) {
+    res.status(500).json({ error: 'Error al obtener los datos.' });
+  }
+};
+
+// ==========================================
+// UPDATE: Actualizar KYC (Ej: si se rechazó y sube nuevo documento)
+// ==========================================
+export const updateKYC = async (req, res) => {
+  const { kycId } = req.params; 
+  const {
+    fullName,
+    age,
+    nationality,
+    phone,
+    email,
+    documentId
+  } = req.body;
+
+  try {
+    const kyc = await IdentifyKYC.findByIdAndUpdate(kycId, { fullName, age, nationality, phone, email, documentId }, { new: true });
+    if (!kyc) return res.status(404).json({ error: 'KYC no encontrado.' });
+
+    res.json({ message: 'KYC actualizado exitosamente.', data: kyc });
+  } catch (error) {
+    res.status(500).json({ error: 'Error al actualizar el KYC.', detalle: error.message });
+  }
+};
+
+
+// ==========================================
+// ADMIN: Verificar identidad
+// ==========================================
+export const verifyKYC = async (req, res) => {
+  try {
+    const { kycId } = req.params; 
+    const { verify } = req.body; 
+
+    const kyc = await IdentifyKYC.findByIdAndUpdate(kycId, { verify }, { new: true });
+    if (!kyc) return res.status(404).json({ error: 'KYC no encontrado.' });
+
+    res.json({ message: `KYC ${verify ? 'aprobado' : 'rechazado'}.`, data: kyc });
+  } catch (error) {
+    res.status(500).json({ error: 'Error al cambiar estado.' });
   }
 };

@@ -1,5 +1,5 @@
 import express from "express";
-import { registerProfile, updateProfile, getProfileByID, getAllProfiles, searchProfiles, getProfileByUserId } from "../controllers/profile.js";
+import { registerProfile, updateProfile, getProfileByID, getAllProfiles, searchProfiles, getProfileByUserId, createKYC, updateKYC, verifyKYC, getKYC } from "../controllers/profile.js";
 
 const router = express.Router();
 
@@ -10,6 +10,12 @@ router.put("/updateProfile/:id", updateProfile);
 router.get("/getProfile/:id", getProfileByID);
 router.get("/getProfileByUser/:userId", getProfileByUserId);
 router.get("/getAllProfiles", getAllProfiles);
+
+// ruta para KYC
+router.post("/createKYC", createKYC);
+router.put("/updateKYC/:id", updateKYC);
+router.patch("/verifyKYC/:id", verifyKYC);
+router.get("/getKYC/:id", getKYC);
 
 
 export default router;

@@ -40,6 +40,10 @@ const ProfileSchema = new mongoose.Schema({
     type: String
   },
 
+  zone: {
+    type: String
+  },
+
   birthDate: {
     type: Date
   },
@@ -49,6 +53,10 @@ const ProfileSchema = new mongoose.Schema({
   },
 
   gender: {
+    type: String
+  },
+
+  orientation: {
     type: String
   },
 
@@ -81,8 +89,8 @@ const ProfileSchema = new mongoose.Schema({
   },
 
   plan: {
-    type: Number,
-    default: 0
+    type: [String],
+    default: []
   },
 
   imagesMain: {
