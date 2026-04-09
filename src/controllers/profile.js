@@ -273,7 +273,7 @@ export const createKYC = async (req, res) => {
     nationality,
     phone,
     email,
-    documentId
+    documentImage
   } = req.body;
 
   const existingKYC = await IdentifyKYC.findOne({ userId });
@@ -289,7 +289,7 @@ export const createKYC = async (req, res) => {
       nationality,
       phone,
       email,
-      documentId
+      documentImage
     });
 
     res.status(201).json({ message: 'KYC guardado exitosamente', data: newKYC });
@@ -325,11 +325,11 @@ export const updateKYC = async (req, res) => {
     nationality,
     phone,
     email,
-    documentId
+    documentImage
   } = req.body;
 
   try {
-    const kyc = await IdentifyKYC.findByIdAndUpdate(kycId, { fullName, age, nationality, phone, email, documentId }, { new: true });
+    const kyc = await IdentifyKYC.findByIdAndUpdate(kycId, { fullName, age, nationality, phone, email, documentImage }, { new: true });
     if (!kyc) return res.status(404).json({ error: 'KYC no encontrado.' });
 
     res.json({ message: 'KYC actualizado exitosamente.', data: kyc });
