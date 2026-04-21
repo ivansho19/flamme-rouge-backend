@@ -2,6 +2,7 @@ import bcrypt from "bcryptjs";
 import User from "../models/User.js";
 import Client from "../models/Client.js";
 import generateToken from "../utils/generateToken.js";
+import Profile from "../models/profile.js"; // Ajusta la ruta según tu estructura
 
 const parserId = (id) => {
   return mongoose.Types.ObjectId(id);
@@ -195,26 +196,37 @@ export const login = async (req, res) => {
     if (!matchUser && !matchClients) return res.status(400).json({ message: "Credenciales inválidas" });
 
     let responseUser = null;
+    
     if (matchUser && user) {
+      // Buscar el profile asociado a este user
+      const profile = await Profile.findOne({ objectId: user._id });
+      
       responseUser = {
-        _id: user.id,
+        _id: user._id,
         name: user.name,
         email: user.email,
         user: true,
+        profileId: profile?._id || null,
         token: generateToken(user._id)
       };
     } else if (matchClients && clients) {
+      // Buscar el profile asociado a este client
+      const profile = await Profile.findOne({ objectId: clients._id });
+      
       responseUser = {
-        _id: clients.id,
+        _id: clients._id,
         name: clients.name,
         email: clients.email,
         client: true,
+        profileId: profile?._id || null,
         token: generateToken(clients._id)
       };
     }
+    
     if (!responseUser) return res.status(400).json({ message: "Credenciales inválidas" });
     res.json(responseUser);
   } catch (error) {
+    console.error('Error en login:', error);
     res.status(500).json({ message: "Error en el servidor" });
   }
 };
