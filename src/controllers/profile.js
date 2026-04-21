@@ -122,49 +122,19 @@ export const getProfileByUserId = async (req, res) => {
   }
 };
 
-// Buscar todos los profiles
+const getPlanPriority = (plan) => {
+  if (!Array.isArray(plan)) return 0;
+  if (plan.includes("3")) return 3;
+  if (plan.includes("2")) return 2;
+  if (plan.includes("1")) return 1;
+  return 0;
+};
+
+// Buscar todos los profiles ordenados por prioridad de plan (3 > 2 > 1)
 export const getAllProfiles = async (req, res) => {
   try {
-    // Se utiliza un pipeline de agregación para ordenar los perfiles
-    // según una prioridad personalizada basada en su plan.
-    const profiles = await Profile.aggregate([
-      {
-        $addFields: {
-          // Se crea un campo 'priority' temporal para la ordenación, asignando
-          // un número menor a los planes de mayor prioridad.
-          priority: {
-            $switch: {
-              branches: [
-                {
-                  case: { $in: ["premium", { $ifNull: ["$plan", []] }] },
-                  then: 1
-                },
-                {
-                  case: { $in: ["pro", { $ifNull: ["$plan", []] }] },
-                  then: 2
-                },
-                {
-                  case: { $in: ["basico", { $ifNull: ["$plan", []] }] },
-                  then: 3
-                }
-              ],
-              // A los perfiles sin un plan definido se les asigna una prioridad baja.
-              default: 99
-            }
-          }
-        }
-      },
-      {
-        // Ordenar los perfiles por el campo 'priority' en orden ascendente.
-        $sort: { priority: 1 }
-      },
-      {
-        // Eliminar el campo 'priority' de la respuesta final.
-        $project: {
-          priority: 0
-        }
-      }
-    ]);
+    const profiles = await Profile.find().lean();
+    profiles.sort((a, b) => getPlanPriority(b.plan) - getPlanPriority(a.plan));
     res.status(200).json(profiles);
   } catch (error) {
     console.log("Error en getAllProfiles:", error);
