@@ -47,6 +47,9 @@ export const getUserByEmail = async (req, res) => {
       name: user.name,
       email: user.email,
       // Puedes agregar más campos si es necesario
+      isActivePlan: user.isActivePlan,
+      isAdmin: user.isAdmin,
+      plan: user.plan
     });
   } catch (error) {
     console.log("Error en getUserByEmail:", error);
@@ -87,6 +90,8 @@ export const updateUser = async (req, res) => {
       name: user.name,
       email: user.email,
       // Puedes agregar más campos si es necesario
+      isActivePlan: user.isActivePlan,
+      plan: user.plan
     });
   } catch (error) {
     res.status(500).json({ message: "Error en el servidor" });
@@ -132,10 +137,7 @@ export const getClientByEmail = async (req, res) => {
       _id: client.id,
       name: client.name,
       email: client.email,
-      country: client.country,
-      city: client.city,
-      gender: client.gender,
-      phone: client.phone
+      isAdmin: user.isAdmin
     });
   } catch (error) {
     console.log("Error en getClientByEmail:", error);
