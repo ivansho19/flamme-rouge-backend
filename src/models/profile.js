@@ -107,6 +107,14 @@ const ProfileSchema = new mongoose.Schema({
     required: false
   },
 
+  alcohol: {
+    type: String
+  },
+
+  cigarette: {
+    type: String
+  },
+
 }, {
   timestamps: true
 });

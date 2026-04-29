@@ -5,6 +5,7 @@ import paymentRoutes from './routes/paymentRoutes.js';
 import profilesRoutes from "./routes/profilesRoutes.js";
 import topRojoRoutes from "./routes/topRojoRoutes.js";
 import commentsRoutes from "./routes/commentsRoutes.js";
+import ratingRoutes from "./routes/ratingRoutes.js";
 
 const app = express();
 
@@ -18,5 +19,6 @@ app.use("/api/payment", paymentRoutes);
 app.use("/api/profiles", profilesRoutes);
 app.use("/api/top-rojo", topRojoRoutes);
 app.use("/api/comments", commentsRoutes);
+app.use("/api/ratings", ratingRoutes);
 
 export default app;

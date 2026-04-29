@@ -30,7 +30,10 @@ export const registerProfile = async (req, res) => {
     plan,
     imagesMain,
     imagesGallery,
-    posibilities
+    posibilities,
+    alcohol,
+    cigarette,
+    birthDate
   } = req.body;
 
   try {
@@ -55,7 +58,10 @@ export const registerProfile = async (req, res) => {
       plan,
       imagesMain,
       imagesGallery,
-      posibilities
+      posibilities,
+      alcohol,
+      cigarette,
+      birthDate
     });
 
     res.status(201).json({
@@ -94,7 +100,9 @@ const mapProfileResponse = (profile) => ({
   birthDate: profile.birthDate,
   posibilities: profile.posibilities,
   zone: profile.zone,
-  orientation: profile.orientation
+  orientation: profile.orientation,
+  alcohol: profile.alcohol,
+  cigarette: profile.cigarette
 });
 
 // Buscar profile por ID
@@ -165,7 +173,9 @@ export const updateProfile = async (req, res) => {
     plan,
     posibilities,
     imagesMain,
-    imagesGallery
+    imagesGallery,
+    alcohol,
+    cigarette
   } = req.body;
 
   const { id } = req.params; // El id del perfil a actualizar
@@ -195,6 +205,8 @@ export const updateProfile = async (req, res) => {
         imagesMain,
         imagesGallery,
         posibilities,
+        alcohol,
+        cigarette,
         updatedAt: Date.now()
       },
       { new: true }
