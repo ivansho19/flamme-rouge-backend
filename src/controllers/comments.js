@@ -3,6 +3,39 @@ import User from "../models/User.js";
 import Client from "../models/Client.js";
 import Profile from "../models/profile.js";
 import CommentProfiles from "../models/commentProfiles.js";
+import CommentPlan from "../models/CommentPlan.js";
+
+const canUserComment = async (userId) => {
+  const now = new Date();
+  const plan = await CommentPlan.findOne({ userId, status: "active" });
+
+  if (plan && plan.expiresAt && plan.expiresAt < now) {
+    plan.status = "expired";
+    await plan.save();
+  }
+
+  if (!plan || plan.status !== "active") {
+    const totalComments = await CommentProfiles.countDocuments({ authorId: userId });
+    return {
+      allowed: totalComments < 1,
+      reason: totalComments < 1 ? null : "Plan gratis permite 1 comentario"
+    };
+  }
+
+  if (plan.planType === "monthly") {
+    const since = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
+    const count = await CommentProfiles.countDocuments({
+      authorId: userId,
+      createdAt: { $gte: since }
+    });
+    return {
+      allowed: count < 4,
+      reason: count < 4 ? null : "Limite mensual de 4 comentarios alcanzado"
+    };
+  }
+
+  return { allowed: true, reason: null };
+};
 
 // 1. Obtener los comentarios de un perfil
 export const getCommentsByProfile = async (req, res) => {
@@ -94,17 +127,23 @@ export const addProviderReply = async (req, res) => {
 export const createComment = async (req, res) => {
   // El authorId debería venir de un usuario autenticado (ej. req.user.id)
   // El profileId es el perfil que se está comentando.
-  const { profileId, authorId, rating, text } = req.body;
+  const { profileId, rating, text } = req.body;
 
-  if (!profileId || !authorId || !text) {
-    return res.status(400).json({ message: "Faltan campos obligatorios: profileId, authorId, text" });
+  if (!profileId || !text) {
+    return res.status(400).json({ message: "Faltan campos obligatorios: profileId, text" });
   }
 
-  if (!mongoose.Types.ObjectId.isValid(profileId) || !mongoose.Types.ObjectId.isValid(authorId)) {
-      return res.status(400).json({ message: "ID de perfil o autor inválido" });
+  if (!mongoose.Types.ObjectId.isValid(profileId)) {
+      return res.status(400).json({ message: "ID de perfil inválido" });
   }
 
   try {
+    if (!req.user) {
+      return res.status(403).json({ message: "Solo usuarios pueden comentar" });
+    }
+
+    const authorId = req.user._id;
+
     // 1. Encontrar el perfil para obtener el ID de su dueño (targetUserId).
     const profile = await Profile.findById(profileId);
     if (!profile) {
@@ -113,7 +152,7 @@ export const createComment = async (req, res) => {
     const targetUserId = profile.objectId;
 
     // 2. Validar que el autor existe.
-    const authorExists = (await Client.findById(authorId)) || (await User.findById(authorId));
+    const authorExists = await User.findById(authorId);
     if (!authorExists) {
       return res.status(404).json({ message: "El autor del comentario no existe" });
     }
@@ -124,6 +163,11 @@ export const createComment = async (req, res) => {
     }
 
     // 4. Crear y guardar el comentario.
+    const permission = await canUserComment(authorId);
+    if (!permission.allowed) {
+      return res.status(403).json({ message: permission.reason });
+    }
+
     const newComment = await CommentProfiles.create({
       targetUserId,
       authorId,
