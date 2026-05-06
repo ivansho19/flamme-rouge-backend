@@ -369,6 +369,7 @@ export const verifyKYC = async (req, res) => {
     const { verify } = req.body; 
 
     const kyc = await IdentifyKYC.findByIdAndUpdate(kycId, { verify }, { new: true });
+    // TODO : se debe actualizar el campo verify en el perfil DEL ANUNCIANTE
     if (!kyc) return res.status(404).json({ error: 'KYC no encontrado.' });
 
     res.json({ message: `KYC ${verify ? 'aprobado' : 'rechazado'}.`, data: kyc });
