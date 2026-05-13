@@ -119,13 +119,11 @@ const ProfileSchema = new mongoose.Schema({
 
   isActiveProfile: {
     type: Boolean,
-    default: false,
     required: false
   },
 
   isVerify: {
     type: Boolean,
-    default: false,
     required: false
   },
 
