@@ -33,7 +33,9 @@ export const registerProfile = async (req, res) => {
     posibilities,
     alcohol,
     cigarette,
-    birthDate
+    birthDate,
+    isActiveProfile,
+    isVerify
   } = req.body;
 
   try {
@@ -61,7 +63,9 @@ export const registerProfile = async (req, res) => {
       posibilities,
       alcohol,
       cigarette,
-      birthDate
+      birthDate,
+      isActiveProfile,
+      isVerify
     });
 
     res.status(201).json({
@@ -102,14 +106,16 @@ const mapProfileResponse = (profile) => ({
   zone: profile.zone,
   orientation: profile.orientation,
   alcohol: profile.alcohol,
-  cigarette: profile.cigarette
+  cigarette: profile.cigarette,
+  isActiveProfile: profile.isActiveProfile,
+  isVerify: profile.isVerify
 });
 
 // Buscar profile por ID
 export const getProfileByID = async (req, res) => {
   const { id } = req.params;
   try {
-    const profile = await Profile.findById(id);
+    const profile = await Profile.findOne({ _id: id, isActiveProfile: true });
     if (!profile) return res.status(404).json({ message: "Perfil no encontrado" });
     res.status(200).json(mapProfileResponse(profile));
   } catch (error) {
@@ -141,7 +147,7 @@ const getPlanPriority = (plan) => {
 // Buscar todos los profiles ordenados por prioridad de plan (3 > 2 > 1)
 export const getAllProfiles = async (req, res) => {
   try {
-    const profiles = await Profile.find().lean();
+    const profiles = await Profile.find({ isActiveProfile: true }).lean();
     profiles.sort((a, b) => getPlanPriority(b.plan) - getPlanPriority(a.plan));
     res.status(200).json(profiles);
   } catch (error) {
@@ -274,7 +280,7 @@ export const searchProfiles = async (req, res) => {
       return res.status(200).json([]);
     }
 
-    const profiles = await Profile.find({ $or: orClauses });
+    const profiles = await Profile.find({ isActiveProfile: true, $or: orClauses });
 
     res.status(200).json(profiles);
   } catch (error) {
@@ -360,20 +366,3 @@ export const updateKYC = async (req, res) => {
 };
 
 
-// ==========================================
-// ADMIN: Verificar identidad
-// ==========================================
-export const verifyKYC = async (req, res) => {
-  try {
-    const { kycId } = req.params; 
-    const { verify } = req.body; 
-
-    const kyc = await IdentifyKYC.findByIdAndUpdate(kycId, { verify }, { new: true });
-    // TODO : se debe actualizar el campo verify en el perfil DEL ANUNCIANTE
-    if (!kyc) return res.status(404).json({ error: 'KYC no encontrado.' });
-
-    res.json({ message: `KYC ${verify ? 'aprobado' : 'rechazado'}.`, data: kyc });
-  } catch (error) {
-    res.status(500).json({ error: 'Error al cambiar estado.' });
-  }
-};

@@ -108,11 +108,25 @@ const ProfileSchema = new mongoose.Schema({
   },
 
   alcohol: {
-    type: String
+    type: String,
+    required: false
   },
 
   cigarette: {
-    type: String
+    type: String,
+    required: false
+  },
+
+  isActiveProfile: {
+    type: Boolean,
+    default: false,
+    required: false
+  },
+
+  isVerify: {
+    type: Boolean,
+    default: false,
+    required: false
   },
 
 }, {

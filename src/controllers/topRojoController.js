@@ -256,11 +256,17 @@ export const getTopRojoByCity = async (req, res) => {
       status: "active",
       endDate: { $gt: new Date() }
     })
-      .populate("profileId")
+      .populate({
+        path: "profileId",
+        match: { isActiveProfile: true }
+      })
       .sort({ position: 1, createdAt: -1 });
 
+    // Filtrar los Tops donde el perfil haya quedado nulo (porque no está activo)
+    const activeTops = tops.filter(top => top.profileId !== null);
+
     // Update positions if needed
-    tops.forEach((top, index) => {
+    activeTops.forEach((top, index) => {
       top.position = index + 1;
     });
 
@@ -268,8 +274,8 @@ export const getTopRojoByCity = async (req, res) => {
       success: true,
       city,
       country,
-      totalTops: tops.length,
-      tops: tops.map(top => ({
+      totalTops: activeTops.length,
+      tops: activeTops.map(top => ({
         id: top._id,
         profile: {
           id: top.profileId._id,
