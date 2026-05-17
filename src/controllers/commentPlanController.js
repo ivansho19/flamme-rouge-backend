@@ -6,17 +6,17 @@ const PLAN_DEFINITIONS = {
   annual: { days: 365, limit: null, badge: "Hombre Top" }
 };
 
-const getUsage = async (userId, planType) => {
-  if (planType === "monthly") {
-    const since = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
+const getUsage = async (userId, plan) => {
+  if (plan?.planType === "monthly") {
+    const since = plan.startedAt || new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
     const count = await CommentProfiles.countDocuments({
       authorId: userId,
       createdAt: { $gte: since }
     });
-    return { used: count, limit: PLAN_DEFINITIONS.monthly.limit, window: "rolling_30_days" };
+    return { used: count, limit: PLAN_DEFINITIONS.monthly.limit, window: "plan_cycle" };
   }
 
-  if (planType === "annual") {
+  if (plan?.planType === "annual") {
     return { used: null, limit: null, window: "unlimited" };
   }
 
@@ -85,7 +85,7 @@ export const getCommentPlanStatus = async (req, res) => {
     plan = await normalizePlanStatus(plan);
 
     if (!plan || plan.status !== "active") {
-      const usage = await getUsage(req.user._id, "free");
+      const usage = await getUsage(req.user._id, null);
       return res.status(200).json({
         planType: "free",
         status: "active",
@@ -96,7 +96,7 @@ export const getCommentPlanStatus = async (req, res) => {
       });
     }
 
-    const usage = await getUsage(req.user._id, plan.planType);
+    const usage = await getUsage(req.user._id, plan);
 
     res.status(200).json({
       planType: plan.planType,

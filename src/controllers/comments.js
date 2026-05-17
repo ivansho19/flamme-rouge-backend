@@ -23,7 +23,7 @@ const canUserComment = async (userId) => {
   }
 
   if (plan.planType === "monthly") {
-    const since = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
+    const since = plan.startedAt || new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
     const count = await CommentProfiles.countDocuments({
       authorId: userId,
       createdAt: { $gte: since }
