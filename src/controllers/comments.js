@@ -4,6 +4,7 @@ import Client from "../models/Client.js";
 import Profile from "../models/profile.js";
 import CommentProfiles from "../models/commentProfiles.js";
 import CommentPlan from "../models/CommentPlan.js";
+import { notifyProfile } from "../utils/notification.js";
 
 const canUserComment = async (userId) => {
   const now = new Date();
@@ -116,6 +117,18 @@ export const addProviderReply = async (req, res) => {
     comment.providerReply = replyText;
     const updatedComment = await comment.save();
 
+    const profile = await Profile.findOne({ objectId: comment.targetUserId });
+    if (profile) {
+      await notifyProfile({
+        recipientProfileId: profile._id,
+        type: "provider_reply",
+        title: "Respuesta a comentario",
+        message: "Se agrego una respuesta a un comentario",
+        targetId: updatedComment._id,
+        meta: { commentId: updatedComment._id, profileId: profile._id }
+      });
+    }
+
     res.status(200).json({ message: "Respuesta añadida exitosamente", comment: updatedComment });
   } catch (error) {
     console.error("Error al añadir respuesta:", error);
@@ -173,6 +186,15 @@ export const createComment = async (req, res) => {
       authorId,
       rating,
       text,
+    });
+
+    await notifyProfile({
+      recipientProfileId: profile._id,
+      type: "comment_created",
+      title: "Nuevo comentario",
+      message: "Recibiste un nuevo comentario",
+      targetId: newComment._id,
+      meta: { commentId: newComment._id, profileId: profile._id, authorId }
     });
 
     res.status(201).json({ message: "Comentario añadido exitosamente", comment: newComment });

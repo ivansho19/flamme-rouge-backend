@@ -18,9 +18,25 @@ const getPlanPriority = (plan) => {
 // Buscar todos los profiles ordenados por prioridad de plan (3 > 2 > 1)
 export const getAllProfiles = async (req, res) => {
   try {
+    const page = Number(req.query.page) || 1;
+    const limit = Number(req.query.limit) || 10;
+    const safePage = page < 1 ? 1 : page;
+    const safeLimit = limit < 1 ? 10 : limit;
+    const skip = (safePage - 1) * safeLimit;
+
+    const total = await Profile.countDocuments();
     const profiles = await Profile.find().lean();
     profiles.sort((a, b) => getPlanPriority(b.plan) - getPlanPriority(a.plan));
-    res.status(200).json(profiles);
+
+    const paginatedProfiles = profiles.slice(skip, skip + safeLimit);
+
+    res.status(200).json({
+      total,
+      page: safePage,
+      limit: safeLimit,
+      totalPages: Math.ceil(total / safeLimit),
+      data: paginatedProfiles
+    });
   } catch (error) {
     console.log("Error en getAllProfiles:", error);
     res.status(500).json({ message: "Error en el servidor" });
@@ -86,13 +102,23 @@ export const verifyKYC = async (req, res) => {
     const { kycId } = req.params; 
     const { verify } = req.body; 
 
+    const kyc = await IdentifyKYC.findByIdAndUpdate(
+      kycId,
+      { verify },
+      { new: true }
+    );
+
+    if (!kyc) {
+      return res.status(404).json({ error: "KYC no encontrado." });
+    }
+
     // Actualizar el estado de isVerify en el Profile del anunciante
     await Profile.findOneAndUpdate(
-      { objectId: kycId },
+      { objectId: kyc.userId },
       { isVerify: verify }
     );
 
-    res.json({ message: `KYC ${verify ? 'aprobado' : 'rechazado'}.`});
+    res.json({ message: `KYC ${verify ? "aprobado" : "rechazado"}.` });
   } catch (error) {
     res.status(500).json({ error: 'Error al cambiar estado.' });
   }

@@ -1,5 +1,5 @@
 import express from "express";
-import { registerProfile, updateProfile, getProfileByID, getAllProfiles, searchProfiles, getProfileByUserId, createKYC, updateKYC, getKYC } from "../controllers/profile.js";
+import { registerProfile, updateProfile, getProfileByID, getAllProfiles, searchProfiles, getProfileByUserId, createKYC, updateKYC, getKYC, getAllKYC } from "../controllers/profile.js";
 
 const router = express.Router();
 
@@ -15,6 +15,7 @@ router.get("/getAllProfiles", getAllProfiles);
 router.post("/createKYC", createKYC);
 router.put("/updateKYC/:id", updateKYC);
 router.get("/getKYC/:id", getKYC);
+router.get("/getAllKYC", getAllKYC);
 
 
 export default router;

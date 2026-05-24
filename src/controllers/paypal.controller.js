@@ -1,5 +1,6 @@
 import PayPalOrder from "../models/PayPalOrder.js";
 import { createPayPalOrder, capturePayPalOrder } from "../services/paypal.service.js";
+import { notifyAdmin } from "../utils/notification.js";
 
 const getApprovalUrl = (links = []) => {
   const approveLink = links.find((link) => link.rel === "approve");
@@ -83,6 +84,14 @@ export const captureOrder = async (req, res) => {
         rawCaptureResponse: capture
       });
     }
+
+    await notifyAdmin({
+      type: "payment_processed",
+      title: "Pago procesado",
+      message: `Pago capturado para orden ${orderId}`,
+      targetId: existingOrder?._id || null,
+      meta: { orderId, status: capture.status }
+    });
 
     res.status(200).json({
       orderId,

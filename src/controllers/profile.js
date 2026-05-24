@@ -2,6 +2,7 @@
 import mongoose from "mongoose";
 import Profile from "../models/profile.js";
 import IdentifyKYC from "../models/identifyKYC.js";
+import { notifyAdmin } from "../utils/notification.js";
 
 const parserId = (id) => {
   return mongoose.Types.ObjectId(id);
@@ -68,6 +69,14 @@ export const registerProfile = async (req, res) => {
       isVerify
     });
 
+    await notifyAdmin({
+      type: "profile_created",
+      title: "Nuevo perfil creado",
+      message: `Se creo el perfil ${profile.displayName}`,
+      targetId: profile._id,
+      meta: { profileId: profile._id, objectId: profile.objectId }
+    });
+
     res.status(201).json({
       profile: {
         _id: profile._id,
@@ -115,8 +124,15 @@ const mapProfileResponse = (profile) => ({
 export const getProfileByID = async (req, res) => {
   const { id } = req.params;
   try {
-    const profile = await Profile.findOne({ _id: id, isActiveProfile: true });
+    const profile = await Profile.findById(id);
     if (!profile) return res.status(404).json({ message: "Perfil no encontrado" });
+    if (!profile.isActiveProfile) {
+      return res.status(200).json({
+        warning: "Perfil inactivo",
+        profile: mapProfileResponse(profile)
+      });
+    }
+
     res.status(200).json(mapProfileResponse(profile));
   } catch (error) {
     console.log("Error en getProfileByID:", error);
@@ -338,6 +354,36 @@ export const getKYC = async (req, res) => {
     res.json({ data: kyc });
   } catch (error) {
     res.status(500).json({ error: 'Error al obtener los datos.' });
+  }
+};
+
+// ==========================================
+// READ: Obtener todos los KYC
+// ==========================================
+export const getAllKYC = async (req, res) => {
+  try {
+    const page = Number(req.query.page) || 1;
+    const limit = Number(req.query.limit) || 10;
+    const safePage = page < 1 ? 1 : page;
+    const safeLimit = limit < 1 ? 10 : limit;
+    const skip = (safePage - 1) * safeLimit;
+
+    const total = await IdentifyKYC.countDocuments();
+    const kycs = await IdentifyKYC.find()
+      .sort({ createdAt: -1 })
+      .skip(skip)
+      .limit(safeLimit)
+      .lean();
+
+    res.status(200).json({
+      total,
+      page: safePage,
+      limit: safeLimit,
+      totalPages: Math.ceil(total / safeLimit),
+      data: kycs
+    });
+  } catch (error) {
+    res.status(500).json({ error: 'Error al obtener los datos.', detalle: error.message });
   }
 };
 

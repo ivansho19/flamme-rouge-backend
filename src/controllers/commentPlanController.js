@@ -1,5 +1,6 @@
 import CommentPlan from "../models/CommentPlan.js";
 import CommentProfiles from "../models/commentProfiles.js";
+import { notifyAdmin } from "../utils/notification.js";
 
 const PLAN_DEFINITIONS = {
   monthly: { days: 30, limit: 4, badge: "Miembro" },
@@ -62,6 +63,14 @@ export const activateCommentPlan = async (req, res) => {
       },
       { new: true, upsert: true }
     );
+
+    await notifyAdmin({
+      type: "comment_plan",
+      title: "Plan de comentarios activado",
+      message: `Usuario ${req.user._id} activo plan ${plan.planType}`,
+      targetId: req.user._id,
+      meta: { userId: req.user._id, planType: plan.planType }
+    });
 
     res.status(200).json({
       planType: plan.planType,

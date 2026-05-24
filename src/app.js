@@ -8,6 +8,7 @@ import topRojoRoutes from "./routes/topRojoRoutes.js";
 import commentsRoutes from "./routes/commentsRoutes.js";
 import commentPlanRoutes from "./routes/commentPlanRoutes.js";
 import ratingRoutes from "./routes/ratingRoutes.js";
+import notificationRoutes from "./routes/notificationRoutes.js";
 import adminRoutes from "./routes/adminRoutes.js";
 
 const app = express();
@@ -25,6 +26,7 @@ app.use("/api/top-rojo", topRojoRoutes);
 app.use("/api/comments", commentsRoutes);
 app.use("/api/comment-plans", commentPlanRoutes);
 app.use("/api/ratings", ratingRoutes);
+app.use("/api/notifications", notificationRoutes);
 app.use("/api/admin", adminRoutes);
 
 export default app;

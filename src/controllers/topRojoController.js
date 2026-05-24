@@ -2,6 +2,7 @@ import mongoose from "mongoose";
 import TopRojo from "../models/TopRojo.js";
 import Profile from "../models/profile.js";
 import Stripe from "stripe";
+import { notifyAdmin } from "../utils/notification.js";
 
 const getStripe = () => new Stripe(process.env.STRIPE_SECRET_KEY);
 
@@ -106,6 +107,14 @@ export const createTopRojo = async (req, res) => {
     });
 
     await topRojo.save();
+
+    await notifyAdmin({
+      type: "top_rojo",
+      title: "Top Rojo activado",
+      message: `Se activo Top Rojo ${planType} para perfil ${profileId}`,
+      targetId: topRojo._id,
+      meta: { profileId, planType, userId }
+    });
 
     // Populate profile info for response
     const response = {

@@ -1,5 +1,6 @@
 import mongoose from "mongoose";
 import Rating from "../models/ratings.js";
+import { notifyProfile } from "../utils/notification.js";
 
 // 1. Dar o quitar like (Toggle)
 export const toggleLike = async (req, res) => {
@@ -24,6 +25,14 @@ export const toggleLike = async (req, res) => {
     } else {
       // Si no existe, lo creamos (Dar like)
       const newLike = await Rating.create({ profileId, userId });
+      await notifyProfile({
+        recipientProfileId: profileId,
+        type: "like_added",
+        title: "Nuevo like",
+        message: "A tu perfil le dieron like",
+        targetId: newLike._id,
+        meta: { profileId, userId, likeId: newLike._id }
+      });
       return res.status(201).json({ message: "Like agregado correctamente", isLiked: true, like: newLike });
     }
   } catch (error) {

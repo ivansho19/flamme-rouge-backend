@@ -206,6 +206,7 @@ export const login = async (req, res) => {
         name: user.name,
         email: user.email,
         user: true,
+        isAdmin: user.isAdmin || false,
         client: false,
         profileId: profile?._id || null,
         token: generateToken(user._id)
@@ -219,6 +220,7 @@ export const login = async (req, res) => {
         name: clients.name,
         email: clients.email,
         client: true,
+        isAdmin: clients.isAdmin || false,
         profileId: profile?._id || null,
         token: generateToken(clients._id)
       };
