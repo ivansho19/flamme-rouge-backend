@@ -1,8 +1,11 @@
-import Notification from "../models/Notification.js";
+import SocketManager from "../sockets/SocketManager.js";
+import NotificationService from "../services/notificationService.js";
+
+const notificationService = new NotificationService(SocketManager.getInstance());
 
 export const notifyAdmin = async ({ type, title, message, targetId = null, meta = null }) => {
   try {
-    await Notification.create({
+    await notificationService.createAdminNotification({
       type,
       title,
       message,
@@ -23,7 +26,7 @@ export const notifyProfile = async ({
   meta = null
 }) => {
   try {
-    await Notification.create({
+    await notificationService.createProfileNotification({
       recipientProfileId,
       type,
       title,

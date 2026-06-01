@@ -20,12 +20,18 @@ export const getAllProfiles = async (req, res) => {
   try {
     const page = Number(req.query.page) || 1;
     const limit = Number(req.query.limit) || 10;
+    const name = typeof req.query.name === "string" ? req.query.name.trim() : "";
     const safePage = page < 1 ? 1 : page;
     const safeLimit = limit < 1 ? 10 : limit;
     const skip = (safePage - 1) * safeLimit;
 
-    const total = await Profile.countDocuments();
-    const profiles = await Profile.find().lean();
+    const filter = {};
+    if (name) {
+      filter.displayName = { $regex: name, $options: "i" };
+    }
+
+    const total = await Profile.countDocuments(filter);
+    const profiles = await Profile.find(filter).lean();
     profiles.sort((a, b) => getPlanPriority(b.plan) - getPlanPriority(a.plan));
 
     const paginatedProfiles = profiles.slice(skip, skip + safeLimit);
