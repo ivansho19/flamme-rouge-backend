@@ -1,5 +1,6 @@
 import mongoose from "mongoose";
 import Profile from "../models/profile.js";
+import User from "../models/User.js";
 import IdentifyKYC from "../models/identifyKYC.js";
 import TopRojo from "../models/TopRojo.js";
 
@@ -127,5 +128,33 @@ export const verifyKYC = async (req, res) => {
     res.json({ message: `KYC ${verify ? "aprobado" : "rechazado"}.` });
   } catch (error) {
     res.status(500).json({ error: 'Error al cambiar estado.' });
+  }
+};
+
+// Buscar todos los user
+export const getAllUsers = async (req, res) => {
+  try {
+    const page = Number(req.query.page) || 1;
+    const limit = Number(req.query.limit) || 10;
+    const safePage = page < 1 ? 1 : page;
+    const safeLimit = limit < 1 ? 10 : limit;
+    const skip = (safePage - 1) * safeLimit;
+
+    const total = await User.countDocuments();
+    const users = await User.find()
+      .sort({ createdAt: -1 })
+      .skip(skip)
+      .limit(safeLimit)
+      .lean();
+
+    res.status(200).json({
+      total,
+      page: safePage,
+      limit: safeLimit,
+      totalPages: Math.ceil(total / safeLimit),
+      data: users
+    });
+  } catch (error) {
+    res.status(500).json({ error: 'Error al obtener los datos.', detalle: error.message });
   }
 };
