@@ -3,6 +3,7 @@ import Profile from "../models/profile.js";
 import User from "../models/User.js";
 import IdentifyKYC from "../models/identifyKYC.js";
 import TopRojo from "../models/TopRojo.js";
+import { normalizeExpiredTopRojos } from "../services/topRojoStatusService.js";
 
 const parserId = (id) => {
   return mongoose.Types.ObjectId(id);
@@ -156,5 +157,121 @@ export const getAllUsers = async (req, res) => {
     });
   } catch (error) {
     res.status(500).json({ error: 'Error al obtener los datos.', detalle: error.message });
+  }
+};
+
+// ADMIN: actualizar estado de Top Rojo
+export const updateTopRojoStatus = async (req, res) => {
+  try {
+    const { topRojoId } = req.params;
+    const { status } = req.body;
+
+    const allowedStatuses = ["pending", "active", "expired", "cancelled"];
+
+    if (!mongoose.Types.ObjectId.isValid(topRojoId)) {
+      return res.status(400).json({ message: "ID de Top Rojo invalido" });
+    }
+
+    if (!status || !allowedStatuses.includes(status)) {
+      return res.status(400).json({
+        message: "Status invalido",
+        allowedStatuses
+      });
+    }
+
+    const topRojo = await TopRojo.findByIdAndUpdate(
+      topRojoId,
+      { status, updatedAt: Date.now() },
+      { new: true }
+    );
+
+    if (!topRojo) {
+      return res.status(404).json({ message: "Top Rojo no encontrado" });
+    }
+
+    return res.status(200).json({
+      message: "Status de Top Rojo actualizado correctamente",
+      data: {
+        id: topRojo._id,
+        status: topRojo.status,
+        updatedAt: topRojo.updatedAt
+      }
+    });
+  } catch (error) {
+    return res.status(500).json({ message: "Error actualizando status de Top Rojo", error: error.message });
+  }
+};
+
+// ADMIN: listar Top Rojo con filtro por status
+export const getTopRojoList = async (req, res) => {
+  try {
+    await normalizeExpiredTopRojos();
+
+    const page = Number(req.query.page) || 1;
+    const limit = Number(req.query.limit) || 10;
+    const status = typeof req.query.status === "string" ? req.query.status.trim() : "";
+    const safePage = page < 1 ? 1 : page;
+    const safeLimit = limit < 1 ? 10 : limit;
+    const skip = (safePage - 1) * safeLimit;
+    const allowedStatuses = ["pending", "active", "expired", "cancelled"];
+
+    const filter = {};
+    if (status) {
+      if (!allowedStatuses.includes(status)) {
+        return res.status(400).json({
+          message: "Status invalido",
+          allowedStatuses
+        });
+      }
+
+      filter.status = status;
+    }
+
+    const total = await TopRojo.countDocuments(filter);
+    const topRojos = await TopRojo.find(filter)
+      .populate("profileId", "displayName imagesMain city country isActiveProfile")
+      .sort({ createdAt: -1 })
+      .skip(skip)
+      .limit(safeLimit)
+      .lean();
+
+    return res.status(200).json({
+      total,
+      page: safePage,
+      limit: safeLimit,
+      totalPages: Math.ceil(total / safeLimit),
+      data: topRojos.map((topRojo) => ({
+        id: topRojo._id,
+        profileId: topRojo.profileId?._id || null,
+        profile: topRojo.profileId
+          ? {
+              id: topRojo.profileId._id,
+              displayName: topRojo.profileId.displayName,
+              imagesMain: topRojo.profileId.imagesMain || null,
+              city: topRojo.profileId.city || null,
+              country: topRojo.profileId.country || null,
+              isActiveProfile: topRojo.profileId.isActiveProfile ?? null
+            }
+          : null,
+        userId: topRojo.userId,
+        title: topRojo.title,
+        description: topRojo.description,
+        contactPhone: topRojo.contactPhone,
+        images: topRojo.images,
+        planType: topRojo.planType,
+        city: topRojo.city,
+        country: topRojo.country,
+        startDate: topRojo.startDate,
+        endDate: topRojo.endDate,
+        status: topRojo.status,
+        position: topRojo.position,
+        viewCount: topRojo.viewCount,
+        clickCount: topRojo.clickCount,
+        createdAt: topRojo.createdAt,
+        updatedAt: topRojo.updatedAt
+      }))
+    });
+  } catch (error) {
+    return res.status(500).json({ message: "Error obteniendo Top Rojo", error: error.message });
   }
 };

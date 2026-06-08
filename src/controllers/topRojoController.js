@@ -3,6 +3,7 @@ import TopRojo from "../models/TopRojo.js";
 import Profile from "../models/profile.js";
 import Stripe from "stripe";
 import { notifyAdmin } from "../utils/notification.js";
+import { normalizeExpiredTopRojos } from "../services/topRojoStatusService.js";
 
 const getStripe = () => new Stripe(process.env.STRIPE_SECRET_KEY);
 
@@ -16,7 +17,18 @@ const PLANS = {
 // POST /api/profiles/top-rojo/create
 export const createTopRojo = async (req, res) => {
   try {
-    const { profileId, planType, city, country, title, description, contactPhone, images } = req.body;
+    const {
+      profileId,
+      planType,
+      city,
+      country,
+      title,
+      description,
+      contactPhone,
+      images,
+      status = "pending"
+    } = req.body;
+    const allowedStatuses = ["pending", "active"];
 
     // Validate required fields
     if (!profileId || !planType || !city || !country || !title || !description || !contactPhone || !images) {
@@ -34,6 +46,13 @@ export const createTopRojo = async (req, res) => {
       });
     }
 
+    if (!allowedStatuses.includes(status)) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid status. Allowed values: pending, active"
+      });
+    }
+
     // Check if profile exists and get userId
     const profile = await Profile.findById(profileId);
     if (!profile) {
@@ -44,6 +63,8 @@ export const createTopRojo = async (req, res) => {
     }
 
     const userId = profile.objectId;
+
+    await normalizeExpiredTopRojos();
 
     // Check if user already has an active top-rojo for this city
     const existingTopRojo = await TopRojo.findOne({
@@ -64,33 +85,34 @@ export const createTopRojo = async (req, res) => {
     const now = new Date();
     const endDate = new Date(now.getTime() + PLANS[planType].hours * 60 * 60 * 1000);
 
-    // Create payment intent with Stripe
     let paymentUrl = null;
     let paymentId = null;
 
-    try {
-      const paymentIntent = await getStripe().paymentIntents.create({
-        amount: PLANS[planType].price,
-        currency: "usd",
-        metadata: {
-          profileId,
-          userId,
-          planType,
-          city,
-          country
-        }
-      });
-      paymentId = paymentIntent.id;
-      paymentUrl = `${process.env.FRONTEND_URL}/checkout?clientSecret=${paymentIntent.client_secret}`;
-    } catch (stripeError) {
-      return res.status(500).json({
-        success: false,
-        message: "Payment processing failed",
-        error: stripeError.message
-      });
+    if (status === "active") {
+      try {
+        const paymentIntent = await getStripe().paymentIntents.create({
+          amount: PLANS[planType].price,
+          currency: "usd",
+          metadata: {
+            profileId,
+            userId,
+            planType,
+            city,
+            country,
+            status
+          }
+        });
+        paymentId = paymentIntent.id;
+        paymentUrl = `${process.env.FRONTEND_URL}/checkout?clientSecret=${paymentIntent.client_secret}`;
+      } catch (stripeError) {
+        return res.status(500).json({
+          success: false,
+          message: "Payment processing failed",
+          error: stripeError.message
+        });
+      }
     }
 
-    // Create top-rojo entry
     const topRojo = new TopRojo({
       profileId,
       userId,
@@ -103,17 +125,19 @@ export const createTopRojo = async (req, res) => {
       images,
       endDate,
       paymentId,
-      status: "active"
+      status
     });
 
     await topRojo.save();
 
     await notifyAdmin({
       type: "top_rojo",
-      title: "Top Rojo activado",
-      message: `Se activo Top Rojo ${planType} para perfil ${profileId}`,
+      title: status === "active" ? "Top Rojo activado" : "Top Rojo pendiente",
+      message: status === "active"
+        ? `Se creo Top Rojo ${planType} en estado activo para perfil ${profileId}`
+        : `Se creo Top Rojo ${planType} en estado pendiente para perfil ${profileId}`,
       targetId: topRojo._id,
-      meta: { profileId, planType, userId }
+      meta: { profileId, planType, userId, status }
     });
 
     // Populate profile info for response
@@ -166,10 +190,13 @@ export const getMyTops = async (req, res) => {
       });
     }
 
+    await normalizeExpiredTopRojos();
+
     const myTops = await TopRojo.find({ userId });
 
     // Categorize tops
     const activeTops = myTops.filter(top => top.status === "active" && new Date(top.endDate) > new Date());
+    const pendingTops = myTops.filter(top => top.status === "pending");
     const expiredTops = myTops.filter(top => top.status === "expired" || new Date(top.endDate) <= new Date());
     const cancelledTops = myTops.filter(top => top.status === "cancelled");
 
@@ -196,12 +223,14 @@ export const getMyTops = async (req, res) => {
       stats: {
         totalTops: myTops.length,
         activeTops: activeTops.length,
+        pendingTops: pendingTops.length,
         expiredTops: expiredTops.length,
         cancelledTops: cancelledTops.length,
         totalViews: myTops.reduce((sum, top) => sum + top.viewCount, 0),
         totalClicks: myTops.reduce((sum, top) => sum + top.clickCount, 0)
       },
       activeTops: activeTops.map(mapTop),
+      pendingTops: pendingTops.map(mapTop),
       expiredTops: expiredTops.map(mapTop)
     };
 
@@ -219,6 +248,8 @@ export const getMyTops = async (req, res) => {
 // GET /api/profiles/top-rojo/all
 export const getAllTops = async (req, res) => {
   try {
+    await normalizeExpiredTopRojos();
+
     const tops = await TopRojo.find({
       status: "active",
       endDate: { $gt: new Date() }
@@ -257,6 +288,8 @@ export const getAllTops = async (req, res) => {
 export const getTopRojoByCity = async (req, res) => {
   try {
     const { city, country } = req.params;
+
+    await normalizeExpiredTopRojos();
 
     // Get active tops for this city ordered by position
     const tops = await TopRojo.find({

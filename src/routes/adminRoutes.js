@@ -3,7 +3,9 @@ import { getAllProfiles,
     activeProfile, 
     deleteProfile, 
     verifyKYC, 
-    getAllUsers} from "../controllers/adminController.js";
+    getAllUsers,
+    updateTopRojoStatus,
+    getTopRojoList} from "../controllers/adminController.js";
 
 const router = express.Router();
 
@@ -16,5 +18,9 @@ router.get("/getAllUsers", getAllUsers);
 
 // ruta para KYC
 router.put("/verifyKYC/:kycId", verifyKYC);
+
+// ruta para Top Rojo
+router.get("/top-rojo", getTopRojoList);
+router.put("/top-rojo/:topRojoId/status", updateTopRojoStatus);
 
 export default router;

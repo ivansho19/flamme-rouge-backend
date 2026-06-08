@@ -105,8 +105,8 @@ const TopRojoSchema = new mongoose.Schema({
   // Estado
   status: {
     type: String,
-    enum: ["active", "expired", "cancelled"],
-    default: "active"
+    enum: ["pending", "active", "expired", "cancelled"],
+    default: "pending"
   }
 
 }, {

@@ -32,7 +32,7 @@ app.use(cors({
 app.use(express.json());
 
 // Aplicar el limitador a todas las rutas de la API
-app.use('/api/', globalLimiter);
+// app.use('/api/', globalLimiter);
 app.use("/api/auth", authRoutes);
 app.use("/api/payment", paymentRoutes);
 app.use("/api/paypal", paypalRoutes);
