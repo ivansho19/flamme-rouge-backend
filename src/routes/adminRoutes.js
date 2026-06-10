@@ -4,6 +4,7 @@ import { getAllProfiles,
     deleteProfile, 
     verifyKYC, 
     getAllUsers,
+    deleteUserById,
     updateTopRojoStatus,
     getTopRojoList} from "../controllers/adminController.js";
 
@@ -15,6 +16,7 @@ router.put("/activeProfile/:id", activeProfile);
 router.delete("/deleteProfile/:id", deleteProfile);
 // ruta para User
 router.get("/getAllUsers", getAllUsers);
+router.delete("/deleteUser/:id", deleteUserById);
 
 // ruta para KYC
 router.put("/verifyKYC/:kycId", verifyKYC);

@@ -140,9 +140,10 @@ export const getAllUsers = async (req, res) => {
     const safePage = page < 1 ? 1 : page;
     const safeLimit = limit < 1 ? 10 : limit;
     const skip = (safePage - 1) * safeLimit;
+    const filter = { isAdmin: false };
 
-    const total = await User.countDocuments();
-    const users = await User.find()
+    const total = await User.countDocuments(filter);
+    const users = await User.find(filter)
       .sort({ createdAt: -1 })
       .skip(skip)
       .limit(safeLimit)
@@ -159,6 +160,28 @@ export const getAllUsers = async (req, res) => {
     res.status(500).json({ error: 'Error al obtener los datos.', detalle: error.message });
   }
 };
+
+export const deleteUserById = async (req, res) => {
+  const { id } = req.params;
+
+  try {
+    if (!mongoose.Types.ObjectId.isValid(id)) {
+      return res.status(400).json({ message: "ID de usuario invalido" });
+    }
+
+    const deletedUser = await User.findByIdAndDelete(id);
+
+    if (!deletedUser) {
+      return res.status(404).json({ message: "Usuario no encontrado" });
+    }
+
+    return res.status(200).json({ message: "Usuario eliminado correctamente" });
+  } catch (error) {
+    return res.status(500).json({ message: "Error al eliminar el usuario", error: error.message });
+  }
+};
+
+
 
 // ADMIN: actualizar estado de Top Rojo
 export const updateTopRojoStatus = async (req, res) => {
