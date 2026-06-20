@@ -129,7 +129,9 @@ export const getProfileByID = async (req, res) => {
   const { id } = req.params;
   try {
     const profile = await Profile.findById(id);
-    if (!profile) return res.status(404).json({ message: "Perfil no encontrado" });
+    if (!profile) {
+      return res.status(404).json({ message: "Perfil no encontrado" });
+    }
 
     if (isRequestBlocked(req, profile.blockedCountries)) {
       return res.status(403).json({
@@ -137,12 +139,13 @@ export const getProfileByID = async (req, res) => {
       });
     }
 
-    if (!profile.isActiveProfile) {
-    
-    // Verificar si el usuario autenticado es el dueño o admin
     const isAuthenticated = req.user || req.client;
     const authId = req.user?._id || req.client?._id;
-    const isOwner = isAuthenticated && profile.objectId && authId && profile.objectId.toString() === authId.toString();
+    const isOwner =
+      isAuthenticated &&
+      profile.objectId &&
+      authId &&
+      profile.objectId.toString() === authId.toString();
     const isAdmin = req.user && req.user.isAdmin;
     const canViewInactive = isOwner || isAdmin;
 
@@ -156,8 +159,10 @@ export const getProfileByID = async (req, res) => {
         profile: mapProfileResponse(profile)
       });
     }
-      res.status(200).json({ profile: mapProfileResponse(profile) });
-    }    
+
+    return res.status(200).json({
+      profile: mapProfileResponse(profile)
+    });
   } catch (error) {
     console.log("Error en getProfileByID:", error);
     res.status(500).json({ message: "Error en el servidor" });
@@ -169,7 +174,9 @@ export const getProfileByUserId = async (req, res) => {
   const { userId } = req.params;
   try {
     const profile = await Profile.findOne({ objectId: userId });
-    if (!profile) return res.status(404).json({ message: "Perfil no encontrado" });
+    if (!profile) {
+      return res.status(404).json({ message: "Perfil no encontrado" });
+    }
 
     if (isRequestBlocked(req, profile.blockedCountries)) {
       return res.status(403).json({
@@ -177,12 +184,13 @@ export const getProfileByUserId = async (req, res) => {
       });
     }
 
-    res.status(200).json(mapProfileResponse(profile));
-    
-    // Verificar si el usuario autenticado es el dueño o admin
     const isAuthenticated = req.user || req.client;
     const authId = req.user?._id || req.client?._id;
-    const isOwner = isAuthenticated && profile.objectId && authId && profile.objectId.toString() === authId.toString();
+    const isOwner =
+      isAuthenticated &&
+      profile.objectId &&
+      authId &&
+      profile.objectId.toString() === authId.toString();
     const isAdmin = req.user && req.user.isAdmin;
     const canViewInactive = isOwner || isAdmin;
 
@@ -196,8 +204,10 @@ export const getProfileByUserId = async (req, res) => {
         profile: mapProfileResponse(profile)
       });
     }
-    
-    res.status(200).json({ profile: mapProfileResponse(profile) });
+
+    return res.status(200).json({
+      profile: mapProfileResponse(profile)
+    });
   } catch (error) {
     res.status(500).json({ message: "Error en el servidor" });
   }

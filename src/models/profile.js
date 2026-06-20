@@ -130,7 +130,8 @@ const ProfileSchema = new mongoose.Schema({
     required: false
   },
   blockedCountries: {
-    type: [String]
+    type: [String],
+    required: false
   },
 
 }, {
