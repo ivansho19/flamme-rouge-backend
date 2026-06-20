@@ -4,7 +4,7 @@ const CommentPlanSchema = new mongoose.Schema(
   {
     userId: { type: mongoose.Schema.Types.ObjectId, ref: "User", required: true, unique: true },
     planType: { type: String, enum: ["monthly", "annual"], required: true },
-    status: { type: String, enum: ["active", "cancelled", "expired"], default: "active" },
+    status: { type: String, enum: ["pending", "active", "cancelled", "expired"] },
     badge: { type: String },
     startedAt: { type: Date, required: true },
     expiresAt: { type: Date, required: true }

@@ -3,7 +3,13 @@ import Profile from "../models/profile.js";
 import User from "../models/User.js";
 import IdentifyKYC from "../models/identifyKYC.js";
 import TopRojo from "../models/TopRojo.js";
+import CommentPlan from "../models/CommentPlan.js";
 import { normalizeExpiredTopRojos } from "../services/topRojoStatusService.js";
+
+const COMMENT_PLAN_DEFINITIONS = {
+  monthly: { days: 30, badge: "Miembro" },
+  annual: { days: 365, badge: "Hombre Top" }
+};
 
 const parserId = (id) => {
   return mongoose.Types.ObjectId(id);
@@ -149,14 +155,30 @@ export const getAllUsers = async (req, res) => {
       .limit(safeLimit)
       .lean();
 
+    // Obtener los IDs de los usuarios de esta página
+    const userIds = users.map(user => user._id);
+    
+    // Buscar los planes de comentarios asociados a estos usuarios
+    const commentPlans = await CommentPlan.find({ userId: { $in: userIds } }).lean();
+
+    // Integrar la información del plan dentro del objeto del usuario
+    const usersWithCommentPlans = users.map(user => {
+      const plan = commentPlans.find(p => p.userId.toString() === user._id.toString());
+      return {
+        ...user,
+        commentPlan: plan || null
+      };
+    });
+
     res.status(200).json({
       total,
       page: safePage,
       limit: safeLimit,
       totalPages: Math.ceil(total / safeLimit),
-      data: users
+      data: usersWithCommentPlans
     });
   } catch (error) {
+    console.error("Error en getAllUsers:", error);
     res.status(500).json({ error: 'Error al obtener los datos.', detalle: error.message });
   }
 };
@@ -296,5 +318,66 @@ export const getTopRojoList = async (req, res) => {
     });
   } catch (error) {
     return res.status(500).json({ message: "Error obteniendo Top Rojo", error: error.message });
+  }
+};
+
+// ADMIN: actualizar estado de plan de comentarios
+export const updateCommentPlanStatus = async (req, res) => {
+  try {
+    const { commentPlanId } = req.params;
+    const { status } = req.body;
+    const allowedStatuses = ["pending", "active", "cancelled", "expired"];
+
+    if (!mongoose.Types.ObjectId.isValid(commentPlanId)) {
+      return res.status(400).json({ message: "ID de plan invalido" });
+    }
+
+    if (!status || !allowedStatuses.includes(status)) {
+      return res.status(400).json({
+        message: "Status invalido",
+        allowedStatuses
+      });
+    }
+
+    const plan = await CommentPlan.findById(commentPlanId);
+    if (!plan) {
+      return res.status(404).json({ message: "Plan no encontrado" });
+    }
+
+    plan.status = status;
+
+    if (status === "active") {
+      const planDef = COMMENT_PLAN_DEFINITIONS[plan.planType];
+      if (!planDef) {
+        return res.status(400).json({ message: "Tipo de plan invalido" });
+      }
+
+      const startedAt = new Date();
+      plan.startedAt = startedAt;
+      plan.expiresAt = new Date(startedAt.getTime() + planDef.days * 24 * 60 * 60 * 1000);
+      plan.badge = planDef.badge;
+    }
+
+    if (status === "cancelled") {
+      plan.expiresAt = new Date();
+    }
+
+    await plan.save();
+
+    return res.status(200).json({
+      message: "Status de plan actualizado correctamente",
+      data: {
+        id: plan._id,
+        userId: plan.userId,
+        planType: plan.planType,
+        status: plan.status,
+        badge: plan.badge,
+        startedAt: plan.startedAt,
+        expiresAt: plan.expiresAt,
+        updatedAt: plan.updatedAt
+      }
+    });
+  } catch (error) {
+    return res.status(500).json({ message: "Error actualizando plan", error: error.message });
   }
 };

@@ -6,7 +6,8 @@ import { getAllProfiles,
     getAllUsers,
     deleteUserById,
     updateTopRojoStatus,
-    getTopRojoList} from "../controllers/adminController.js";
+    getTopRojoList,
+    updateCommentPlanStatus} from "../controllers/adminController.js";
 
 const router = express.Router();
 
@@ -24,5 +25,8 @@ router.put("/verifyKYC/:kycId", verifyKYC);
 // ruta para Top Rojo
 router.get("/top-rojo", getTopRojoList);
 router.put("/top-rojo/:topRojoId/status", updateTopRojoStatus);
+
+// ruta para plan de comentarios
+router.put("/comment-plan/:commentPlanId/status", updateCommentPlanStatus);
 
 export default router;
