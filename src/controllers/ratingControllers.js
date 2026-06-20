@@ -14,6 +14,12 @@ export const toggleLike = async (req, res) => {
     return res.status(400).json({ message: "ID de perfil o usuario inválido" });
   }
 
+  // Verificar que el usuario del token coincida con el consultado
+  const authUserId = req.user ? req.user._id.toString() : req.client ? req.client._id.toString() : null;
+  if (authUserId !== userId) {
+    return res.status(403).json({ message: "No puedes realizar esta acción por otro usuario" });
+  }
+
   try {
     // Verificar si el like ya existe
     const existingLike = await Rating.findOne({ profileId, userId });
@@ -64,6 +70,12 @@ export const checkUserLike = async (req, res) => {
 
   if (!mongoose.Types.ObjectId.isValid(profileId) || !mongoose.Types.ObjectId.isValid(userId)) {
     return res.status(400).json({ message: "ID inválido" });
+  }
+
+  // Verificar que el usuario del token coincida con el consultado
+  const authUserId = req.user ? req.user._id.toString() : req.client ? req.client._id.toString() : null;
+  if (authUserId !== userId) {
+    return res.status(403).json({ message: "No puedes consultar los likes de otro usuario" });
   }
 
   try {

@@ -42,9 +42,15 @@ export const activateCommentPlan = async (req, res) => {
       return res.status(403).json({ message: "Solo usuarios pueden activar planes" });
     }
 
-    const { planType } = req.body;
+    const { planType, status = "pending" } = req.body;
+    const allowedStatuses = ["pending", "active"];
+
     if (!PLAN_DEFINITIONS[planType]) {
       return res.status(400).json({ message: "Plan invalido" });
+    }
+
+    if (!allowedStatuses.includes(status)) {
+      return res.status(400).json({ message: "Status invalido. Valores permitidos: pending, active" });
     }
 
     const planDef = PLAN_DEFINITIONS[planType];
@@ -56,20 +62,22 @@ export const activateCommentPlan = async (req, res) => {
       {
         userId: req.user._id,
         planType,
-        status: "active",
+        status,
         badge: planDef.badge,
-        startedAt,
-        expiresAt
+        // Solo establecer fechas si el plan se activa inmediatamente
+        ...(status === "active" ? { startedAt, expiresAt } : {})
       },
       { new: true, upsert: true }
     );
 
     await notifyAdmin({
       type: "comment_plan",
-      title: "Plan de comentarios activado",
-      message: `Usuario ${req.user._id} activo plan ${plan.planType}`,
+      title: status === "active" ? "Plan de comentarios activado" : "Plan de comentarios pendiente",
+      message: status === "active"
+        ? `Usuario ${req.user._id} activo plan ${plan.planType}`
+        : `Usuario ${req.user._id} solicito plan ${plan.planType} en estado pendiente`,
       targetId: req.user._id,
-      meta: { userId: req.user._id, planType: plan.planType }
+      meta: { userId: req.user._id, planType: plan.planType, status: plan.status }
     });
 
     res.status(200).json({
@@ -93,7 +101,31 @@ export const getCommentPlanStatus = async (req, res) => {
     let plan = await CommentPlan.findOne({ userId: req.user._id });
     plan = await normalizePlanStatus(plan);
 
-    if (!plan || plan.status !== "active") {
+    if (!plan) {
+      const usage = await getUsage(req.user._id, null);
+      return res.status(200).json({
+        planType: "free",
+        status: "active",
+        badge: null,
+        startedAt: null,
+        expiresAt: null,
+        usage
+      });
+    }
+
+    if (plan.status === "pending") {
+      const usage = await getUsage(req.user._id, null);
+      return res.status(200).json({
+        planType: plan.planType,
+        status: plan.status,
+        badge: plan.badge,
+        startedAt: plan.startedAt,
+        expiresAt: plan.expiresAt,
+        usage
+      });
+    }
+
+    if (plan.status !== "active") {
       const usage = await getUsage(req.user._id, null);
       return res.status(200).json({
         planType: "free",

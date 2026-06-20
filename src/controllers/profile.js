@@ -126,14 +126,26 @@ export const getProfileByID = async (req, res) => {
   try {
     const profile = await Profile.findById(id);
     if (!profile) return res.status(404).json({ message: "Perfil no encontrado" });
-    if (!profile.isActiveProfile) {
+    
+    // Verificar si el usuario autenticado es el dueño o admin
+    const isAuthenticated = req.user || req.client;
+    const authId = req.user?._id || req.client?._id;
+    const isOwner = isAuthenticated && profile.objectId && authId && profile.objectId.toString() === authId.toString();
+    const isAdmin = req.user && req.user.isAdmin;
+    const canViewInactive = isOwner || isAdmin;
+
+    if (!profile.isActiveProfile && !canViewInactive) {
+      return res.status(403).json({ message: "Perfil inactivo" });
+    }
+
+    if (!profile.isActiveProfile && canViewInactive) {
       return res.status(200).json({
         warning: "Perfil inactivo",
         profile: mapProfileResponse(profile)
       });
     }
 
-    res.status(200).json(mapProfileResponse(profile));
+    res.status(200).json({ profile: mapProfileResponse(profile) });
   } catch (error) {
     console.log("Error en getProfileByID:", error);
     res.status(500).json({ message: "Error en el servidor" });
@@ -146,7 +158,26 @@ export const getProfileByUserId = async (req, res) => {
   try {
     const profile = await Profile.findOne({ objectId: userId });
     if (!profile) return res.status(404).json({ message: "Perfil no encontrado" });
-    res.status(200).json(mapProfileResponse(profile));
+    
+    // Verificar si el usuario autenticado es el dueño o admin
+    const isAuthenticated = req.user || req.client;
+    const authId = req.user?._id || req.client?._id;
+    const isOwner = isAuthenticated && profile.objectId && authId && profile.objectId.toString() === authId.toString();
+    const isAdmin = req.user && req.user.isAdmin;
+    const canViewInactive = isOwner || isAdmin;
+
+    if (!profile.isActiveProfile && !canViewInactive) {
+      return res.status(403).json({ message: "Perfil inactivo" });
+    }
+
+    if (!profile.isActiveProfile && canViewInactive) {
+      return res.status(200).json({
+        warning: "Perfil inactivo",
+        profile: mapProfileResponse(profile)
+      });
+    }
+    
+    res.status(200).json({ profile: mapProfileResponse(profile) });
   } catch (error) {
     res.status(500).json({ message: "Error en el servidor" });
   }
