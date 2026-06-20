@@ -2,6 +2,7 @@ import mongoose from "mongoose";
 import TopRojo from "../models/TopRojo.js";
 import Profile from "../models/profile.js";
 import Stripe from "stripe";
+import { getRequestCountry, isCountryBlocked } from "../middlewares/geoBlocking.js";
 import { notifyAdmin } from "../utils/notification.js";
 import { normalizeExpiredTopRojos } from "../services/topRojoStatusService.js";
 
@@ -59,6 +60,14 @@ export const createTopRojo = async (req, res) => {
       return res.status(404).json({
         success: false,
         message: "Profile not found"
+      });
+    }
+
+    const requestCountry = getRequestCountry(req);
+    if (requestCountry && isCountryBlocked(requestCountry, profile.blockedCountries)) {
+      return res.status(403).json({
+        success: false,
+        message: "No se puede crear o acceder a este contenido desde tu país"
       });
     }
 
@@ -250,15 +259,28 @@ export const getAllTops = async (req, res) => {
   try {
     await normalizeExpiredTopRojos();
 
+    const requestCountry = getRequestCountry(req);
     const tops = await TopRojo.find({
       status: "active",
       endDate: { $gt: new Date() }
-    }).sort({ position: 1, createdAt: -1 });
+    })
+      .sort({ position: 1, createdAt: -1 })
+      .populate({
+        path: "profileId",
+        select: "blockedCountries isActiveProfile"
+      });
+
+    const visibleTops = requestCountry
+      ? tops.filter((top) => {
+          const profile = top.profileId;
+          return profile && profile.isActiveProfile !== false && !isCountryBlocked(requestCountry, profile.blockedCountries);
+        })
+      : tops.filter((top) => top.profileId && top.profileId.isActiveProfile !== false);
 
     res.status(200).json({
       success: true,
-      total: tops.length,
-      tops: tops.map(top => ({
+      total: visibleTops.length,
+      tops: visibleTops.map(top => ({
         id: top._id,
         profileId: top.profileId,
         title: top.title,
@@ -291,6 +313,8 @@ export const getTopRojoByCity = async (req, res) => {
 
     await normalizeExpiredTopRojos();
 
+    const requestCountry = getRequestCountry(req);
+
     // Get active tops for this city ordered by position
     const tops = await TopRojo.find({
       city,
@@ -307,6 +331,10 @@ export const getTopRojoByCity = async (req, res) => {
     // Filtrar los Tops donde el perfil haya quedado nulo (porque no está activo)
     const activeTops = tops.filter(top => top.profileId !== null);
 
+    const visibleTops = requestCountry
+      ? activeTops.filter((top) => !isCountryBlocked(requestCountry, top.profileId.blockedCountries))
+      : activeTops;
+
     // Update positions if needed
     activeTops.forEach((top, index) => {
       top.position = index + 1;
@@ -316,8 +344,8 @@ export const getTopRojoByCity = async (req, res) => {
       success: true,
       city,
       country,
-      totalTops: activeTops.length,
-      tops: activeTops.map(top => ({
+      totalTops: visibleTops.length,
+      tops: visibleTops.map(top => ({
         id: top._id,
         profile: {
           id: top.profileId._id,

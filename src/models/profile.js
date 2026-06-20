@@ -92,8 +92,8 @@ const ProfileSchema = new mongoose.Schema({
   },
 
   plan: {
-    type: [String],
-    default: []
+    type: [String]
+    
   },
 
   imagesMain: {
@@ -128,6 +128,9 @@ const ProfileSchema = new mongoose.Schema({
   isVerify: {
     type: Boolean,
     required: false
+  },
+  blockedCountries: {
+    type: [String]
   },
 
 }, {

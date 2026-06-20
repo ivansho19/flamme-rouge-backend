@@ -2,6 +2,7 @@
 import mongoose from "mongoose";
 import Profile from "../models/profile.js";
 import IdentifyKYC from "../models/identifyKYC.js";
+import { getRequestCountry, isCountryBlocked, isRequestBlocked } from "../middlewares/geoBlocking.js";
 import { notifyAdmin } from "../utils/notification.js";
 
 const parserId = (id) => {
@@ -36,7 +37,8 @@ export const registerProfile = async (req, res) => {
     cigarette,
     birthDate,
     isActiveProfile,
-    isVerify
+    isVerify,
+    blockedCountries
   } = req.body;
 
   try {
@@ -66,7 +68,8 @@ export const registerProfile = async (req, res) => {
       cigarette,
       birthDate,
       isActiveProfile,
-      isVerify
+      isVerify,
+      blockedCountries
     });
 
     await notifyAdmin({
@@ -117,7 +120,8 @@ const mapProfileResponse = (profile) => ({
   alcohol: profile.alcohol,
   cigarette: profile.cigarette,
   isActiveProfile: profile.isActiveProfile,
-  isVerify: profile.isVerify
+  isVerify: profile.isVerify,
+  blockedCountries: profile.blockedCountries || []
 });
 
 // Buscar profile por ID
@@ -126,6 +130,13 @@ export const getProfileByID = async (req, res) => {
   try {
     const profile = await Profile.findById(id);
     if (!profile) return res.status(404).json({ message: "Perfil no encontrado" });
+
+    if (isRequestBlocked(req, profile.blockedCountries)) {
+      return res.status(403).json({
+        message: "No se puede acceder a este perfil desde tu país"
+      });
+    }
+
     if (!profile.isActiveProfile) {
       return res.status(200).json({
         warning: "Perfil inactivo",
@@ -146,6 +157,13 @@ export const getProfileByUserId = async (req, res) => {
   try {
     const profile = await Profile.findOne({ objectId: userId });
     if (!profile) return res.status(404).json({ message: "Perfil no encontrado" });
+
+    if (isRequestBlocked(req, profile.blockedCountries)) {
+      return res.status(403).json({
+        message: "No se puede acceder a este perfil desde tu país"
+      });
+    }
+
     res.status(200).json(mapProfileResponse(profile));
   } catch (error) {
     res.status(500).json({ message: "Error en el servidor" });
@@ -164,8 +182,14 @@ const getPlanPriority = (plan) => {
 export const getAllProfiles = async (req, res) => {
   try {
     const profiles = await Profile.find({ isActiveProfile: true }).lean();
-    profiles.sort((a, b) => getPlanPriority(b.plan) - getPlanPriority(a.plan));
-    res.status(200).json(profiles);
+    const requestCountry = getRequestCountry(req);
+
+    const visibleProfiles = requestCountry
+      ? profiles.filter((profile) => !isCountryBlocked(requestCountry, profile.blockedCountries))
+      : profiles;
+
+    visibleProfiles.sort((a, b) => getPlanPriority(b.plan) - getPlanPriority(a.plan));
+    res.status(200).json(visibleProfiles);
   } catch (error) {
     console.log("Error en getAllProfiles:", error);
     res.status(500).json({ message: "Error en el servidor" });
@@ -197,7 +221,8 @@ export const updateProfile = async (req, res) => {
     imagesMain,
     imagesGallery,
     alcohol,
-    cigarette
+    cigarette,
+    blockedCountries
   } = req.body;
 
   const { id } = req.params; // El id del perfil a actualizar
@@ -229,6 +254,7 @@ export const updateProfile = async (req, res) => {
         posibilities,
         alcohol,
         cigarette,
+        blockedCountries,
         updatedAt: Date.now()
       },
       { new: true }
@@ -297,8 +323,13 @@ export const searchProfiles = async (req, res) => {
     }
 
     const profiles = await Profile.find({ isActiveProfile: true, $or: orClauses });
+    const requestCountry = getRequestCountry(req);
 
-    res.status(200).json(profiles);
+    const visibleProfiles = requestCountry
+      ? profiles.filter((profile) => !isCountryBlocked(requestCountry, profile.blockedCountries))
+      : profiles;
+
+    res.status(200).json(visibleProfiles);
   } catch (error) {
     console.log("Error en searchProfiles:", error);
     res.status(500).json({ message: "Error en el servidor" });
