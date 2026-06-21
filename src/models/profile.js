@@ -96,6 +96,11 @@ const ProfileSchema = new mongoose.Schema({
     
   },
 
+  planExpiresAt: {
+    type: Date,
+    required: false
+  },
+
   imagesMain: {
     type: ImageSchema,
     required: false

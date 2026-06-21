@@ -5,6 +5,7 @@ import IdentifyKYC from "../models/identifyKYC.js";
 import TopRojo from "../models/TopRojo.js";
 import CommentPlan from "../models/CommentPlan.js";
 import { normalizeExpiredTopRojos } from "../services/topRojoStatusService.js";
+import { normalizeExpiredProfiles } from "./profile.js";
 
 const COMMENT_PLAN_DEFINITIONS = {
   monthly: { days: 30, badge: "Miembro" },
@@ -26,6 +27,8 @@ const getPlanPriority = (plan) => {
 // Buscar todos los profiles ordenados por prioridad de plan (3 > 2 > 1)
 export const getAllProfiles = async (req, res) => {
   try {
+    await normalizeExpiredProfiles();
+
     const page = Number(req.query.page) || 1;
     const limit = Number(req.query.limit) || 10;
     const name = typeof req.query.name === "string" ? req.query.name.trim() : "";

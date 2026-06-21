@@ -26,6 +26,10 @@ const globalLimiter = rateLimit({
 
 const app = express();
 
+// Confía en el primer proxy (ej: Vercel, Heroku, Nginx, Ngrok, Cloudflare)
+// Esto soluciona el error de "X-Forwarded-For" de express-rate-limit
+app.set("trust proxy", 1);
+
 app.use(cors({
   origin: '*'
 }));

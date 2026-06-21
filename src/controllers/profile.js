@@ -30,6 +30,7 @@ export const registerProfile = async (req, res) => {
     eyeColor,
     languages,
     plan,
+    planExpiresAt,
     imagesMain,
     imagesGallery,
     posibilities,
@@ -42,6 +43,11 @@ export const registerProfile = async (req, res) => {
   } = req.body;
 
   try {
+    let computedPlanExpiresAt = planExpiresAt;
+    if (!computedPlanExpiresAt && plan && plan.length > 0) {
+      computedPlanExpiresAt = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000); // 30 days default
+    }
+
     const profile = await Profile.create({
       objectId,
       displayName,
@@ -61,6 +67,7 @@ export const registerProfile = async (req, res) => {
       eyeColor,
       languages,
       plan,
+      planExpiresAt: computedPlanExpiresAt,
       imagesMain,
       imagesGallery,
       posibilities,
@@ -111,6 +118,7 @@ const mapProfileResponse = (profile) => ({
   eyeColor: profile.eyeColor,
   languages: profile.languages,
   plan: profile.plan,
+  planExpiresAt: profile.planExpiresAt,
   imagesGallery: profile.imagesGallery,
   imagesMain: profile.imagesMain,
   birthDate: profile.birthDate,
@@ -124,10 +132,24 @@ const mapProfileResponse = (profile) => ({
   blockedCountries: profile.blockedCountries || []
 });
 
+export const normalizeExpiredProfiles = async () => {
+  try {
+    const now = new Date();
+    await Profile.updateMany(
+      { isActiveProfile: true, planExpiresAt: { $lt: now } },
+      { $set: { isActiveProfile: false } }
+    );
+  } catch (error) {
+    console.error("Error normalizando perfiles expirados:", error);
+  }
+};
+
 // Buscar profile por ID
 export const getProfileByID = async (req, res) => {
   const { id } = req.params;
   try {
+    await normalizeExpiredProfiles();
+    
     const profile = await Profile.findById(id);
     if (!profile) {
       return res.status(404).json({ message: "Perfil no encontrado" });
@@ -173,6 +195,8 @@ export const getProfileByID = async (req, res) => {
 export const getProfileByUserId = async (req, res) => {
   const { userId } = req.params;
   try {
+    await normalizeExpiredProfiles();
+
     const profile = await Profile.findOne({ objectId: userId });
     if (!profile) {
       return res.status(404).json({ message: "Perfil no encontrado" });
@@ -224,6 +248,8 @@ const getPlanPriority = (plan) => {
 // Buscar todos los profiles ordenados por prioridad de plan (3 > 2 > 1)
 export const getAllProfiles = async (req, res) => {
   try {
+    await normalizeExpiredProfiles();
+
     const profiles = await Profile.find({ isActiveProfile: true }).lean();
     const requestCountry = getRequestCountry(req);
 
@@ -260,17 +286,31 @@ export const updateProfile = async (req, res) => {
     birthDate,
     languages,
     plan,
+    planExpiresAt,
     posibilities,
     imagesMain,
     imagesGallery,
     alcohol,
     cigarette,
+    isActiveProfile,
     blockedCountries
   } = req.body;
 
   const { id } = req.params; // El id del perfil a actualizar
 
   try {
+    const existingProfile = await Profile.findById(id);
+    if (!existingProfile) {
+      return res.status(404).json({ message: "Perfil no encontrado" });
+    }
+
+    let computedPlanExpiresAt = planExpiresAt;
+    if (plan && JSON.stringify(plan) !== JSON.stringify(existingProfile.plan)) {
+      computedPlanExpiresAt = planExpiresAt || new Date(Date.now() + 30 * 24 * 60 * 60 * 1000);
+    } else if (!planExpiresAt) {
+      computedPlanExpiresAt = existingProfile.planExpiresAt;
+    }
+
     const updatedProfile = await Profile.findByIdAndUpdate(
       id,
       {
@@ -291,12 +331,14 @@ export const updateProfile = async (req, res) => {
         eyeColor,
         languages,
         plan,
+        planExpiresAt: computedPlanExpiresAt,
         birthDate,
         imagesMain,
         imagesGallery,
         posibilities,
         alcohol,
         cigarette,
+        isActiveProfile,
         blockedCountries,
         updatedAt: Date.now()
       },
@@ -323,6 +365,8 @@ export const searchProfiles = async (req, res) => {
   }
 
   try {
+    await normalizeExpiredProfiles();
+
     const schemaPaths = Profile.schema.paths;
 
     const fieldCandidates = [
