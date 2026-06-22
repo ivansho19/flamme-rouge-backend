@@ -379,7 +379,7 @@ export const getTopRojoByCity = async (req, res) => {
 export const renewTopRojo = async (req, res) => {
   try {
     const { id } = req.params;
-    const { planType } = req.body;
+    const { planType, status = "active" } = req.body;
 
     if (!mongoose.Types.ObjectId.isValid(id)) {
       return res.status(400).json({
@@ -405,30 +405,35 @@ export const renewTopRojo = async (req, res) => {
 
     // Create new payment intent
     let paymentId = null;
-    try {
-      const paymentIntent = await getStripe().paymentIntents.create({
-        amount: PLANS[planType].price,
-        currency: "usd",
-        metadata: {
-          topRojoId: id,
-          renewalType: "renew"
-        }
-      });
-      paymentId = paymentIntent.id;
-    } catch (stripeError) {
-      return res.status(500).json({
-        success: false,
-        message: "Payment processing failed",
-        error: stripeError.message
-      });
+    if (status === "active") {
+      try {
+        const paymentIntent = await getStripe().paymentIntents.create({
+          amount: PLANS[planType].price,
+          currency: "usd",
+          metadata: {
+            topRojoId: id,
+            renewalType: "renew"
+          }
+        });
+        paymentId = paymentIntent.id;
+      } catch (stripeError) {
+        return res.status(500).json({
+          success: false,
+          message: "Payment processing failed",
+          error: stripeError.message
+        });
+      }
     }
 
     // Update plan type and end date
     const now = new Date();
     topRojo.planType = planType;
+    
+    // Solo actualizamos la fecha final si se va a activar inmediatamente, o si se mantiene lógica anterior
     topRojo.endDate = new Date(now.getTime() + PLANS[planType].hours * 60 * 60 * 1000);
-    topRojo.paymentId = paymentId;
-    topRojo.status = "active";
+    
+    if (paymentId) topRojo.paymentId = paymentId;
+    topRojo.status = status;
 
     await topRojo.save();
     await topRojo.populate("profileId");
