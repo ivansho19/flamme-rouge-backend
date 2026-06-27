@@ -39,12 +39,29 @@ export const registerProfile = async (req, res) => {
     birthDate,
     isActiveProfile,
     isVerify,
-    blockedCountries
+    blockedCountries,
+    promoCode // <-- Recibimos el código desde el frontend
   } = req.body;
 
   try {
     let computedPlanExpiresAt = planExpiresAt;
-    if (!computedPlanExpiresAt && plan && plan.length > 0) {
+    let computedIsActiveProfile = isActiveProfile;
+    let computedPlan = plan;
+
+    // Validación del código para el plan de 7 días gratis
+    // Puedes definir tu código en el .env o usar el valor por defecto "GRATIS7DIAS"
+    const validPromoCode = process.env.FREE_PLAN_CODE || "GRATIS7DIAS";
+
+    if (promoCode && promoCode === validPromoCode) {
+      // Asignar vencimiento a 7 días exactos a partir de ahora
+      computedPlanExpiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
+      // Activar el perfil automáticamente
+      computedIsActiveProfile = true;
+      // Asignar el plan a "free" si viene vacío
+      if (!computedPlan || computedPlan.length === 0) {
+        computedPlan = ["free"];
+      }
+    } else if (!computedPlanExpiresAt && computedPlan && computedPlan.length > 0) {
       computedPlanExpiresAt = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000); // 30 days default
     }
 
@@ -66,7 +83,7 @@ export const registerProfile = async (req, res) => {
       hairColor,
       eyeColor,
       languages,
-      plan,
+      plan: computedPlan,
       planExpiresAt: computedPlanExpiresAt,
       imagesMain,
       imagesGallery,
@@ -74,7 +91,7 @@ export const registerProfile = async (req, res) => {
       alcohol,
       cigarette,
       birthDate,
-      isActiveProfile,
+      isActiveProfile: computedIsActiveProfile,
       isVerify,
       blockedCountries
     });
