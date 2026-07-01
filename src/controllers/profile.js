@@ -50,7 +50,7 @@ export const registerProfile = async (req, res) => {
 
     // Validación del código para el plan de 7 días gratis
     // Puedes definir tu código en el .env o usar el valor por defecto "GRATIS7DIAS"
-    const validPromoCode = process.env.FREE_PLAN_CODE || "GRATIS7DIAS";
+    const validPromoCode = process.env.FREE_PLAN_CODE;
 
     if (promoCode && promoCode === validPromoCode) {
       // Asignar vencimiento a 7 días exactos a partir de ahora
