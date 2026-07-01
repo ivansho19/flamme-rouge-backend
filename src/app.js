@@ -11,18 +11,7 @@ import commentPlanRoutes from "./routes/commentPlanRoutes.js";
 import ratingRoutes from "./routes/ratingRoutes.js";
 import notificationRoutes from "./routes/notificationRoutes.js";
 import adminRoutes from "./routes/adminRoutes.js";
-
-// Configuración del límite global
-const globalLimiter = rateLimit({
-  windowMs: 15 * 60 * 1000, // Ventana de tiempo: 15 minutos
-  max: 100, // Máximo 100 peticiones por IP dentro de esos 15 minutos
-  message: {
-    status: 429,
-    message: 'Demasiadas solicitudes desde esta IP, por favor intenta más tarde.'
-  },
-  standardHeaders: true, // Devuelve la información de límite en los headers 'RateLimit-*'
-  legacyHeaders: false, // Desactiva los headers antiguos 'X-RateLimit-*'
-});
+import { postRateLimiter } from "./middlewares/rateLimiter.js";
 
 const app = express();
 
@@ -35,8 +24,15 @@ app.use(cors({
 }));
 app.use(express.json());
 
+// Aplicar el limitador SOLO a las peticiones POST de forma global
+app.use((req, res, next) => {
+  if (req.method === 'POST') {
+    return postRateLimiter(req, res, next);
+  }
+  next();
+});
+
 // Aplicar el limitador a todas las rutas de la API
-// app.use('/api/', globalLimiter);
 app.use("/api/auth", authRoutes);
 app.use("/api/payment", paymentRoutes);
 app.use("/api/paypal", paypalRoutes);

@@ -10,3 +10,14 @@ export const publicRateLimiter = rateLimit({
   standardHeaders: true,
   legacyHeaders: false,
 });
+
+export const postRateLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutos
+  max: 100, // 100 peticiones POST por IP en 15 minutos
+  message: {
+    status: 429,
+    message: "Demasiadas peticiones enviadas. Por favor, espera unos minutos antes de volver a intentarlo."
+  },
+  standardHeaders: true,
+  legacyHeaders: false,
+});
