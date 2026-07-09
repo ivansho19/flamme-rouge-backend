@@ -4,11 +4,21 @@ const getPayPalBaseUrl = () => {
 };
 
 const getPayPalAuthHeader = () => {
-  const clientId = process.env.PAYPAL_CLIENT_ID;
-  const clientSecret = process.env.PAYPAL_CLIENT_SECRET;
+  const env = (process.env.PAYPAL_ENV || "sandbox").toLowerCase();
+  
+  let clientId, clientSecret;
+
+  if (env === "live") {
+    clientId = process.env.PAYPAL_LIVE_CLIENT_ID || process.env.PAYPAL_CLIENT_ID;
+    clientSecret = process.env.PAYPAL_LIVE_CLIENT_SECRET || process.env.PAYPAL_CLIENT_SECRET;
+  } else {
+    // Si no está en live, asume sandbox
+    clientId = process.env.PAYPAL_SANDBOX_CLIENT_ID || process.env.PAYPAL_CLIENT_ID;
+    clientSecret = process.env.PAYPAL_SANDBOX_CLIENT_SECRET || process.env.PAYPAL_CLIENT_SECRET;
+  }
 
   if (!clientId || !clientSecret) {
-    throw new Error("Missing PAYPAL_CLIENT_ID or PAYPAL_CLIENT_SECRET");
+    throw new Error(`Faltan las credenciales de PayPal para el entorno: ${env}`);
   }
 
   const credentials = Buffer.from(`${clientId}:${clientSecret}`).toString("base64");
