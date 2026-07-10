@@ -40,7 +40,8 @@ export const registerProfile = async (req, res) => {
     isActiveProfile,
     isVerify,
     blockedCountries,
-    promoCode // <-- Recibimos el código desde el frontend
+    promoCode, // <-- Recibimos el código desde el frontend
+    promoDurationDays // <-- Cantidad de días de duración de la promo
   } = req.body;
 
   try {
@@ -48,13 +49,16 @@ export const registerProfile = async (req, res) => {
     let computedIsActiveProfile = isActiveProfile;
     let computedPlan = plan;
 
-    // Validación del código para el plan de 7 días gratis
+    // Validación del código para el plan gratis
     // Puedes definir tu código en el .env o usar el valor por defecto "GRATIS7DIAS"
-    const validPromoCode = process.env.FREE_PLAN_CODE;
+    const validPromoCode = process.env.FREE_PLAN_CODE || "GRATIS7DIAS";
 
     if (promoCode && promoCode === validPromoCode) {
-      // Asignar vencimiento a 7 días exactos a partir de ahora
-      computedPlanExpiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
+      // Priorizar promoDurationDays si fue enviado y es un número válido, de lo contrario usar 7 como fallback
+      const daysToAdd = (promoDurationDays && !isNaN(promoDurationDays)) ? Number(promoDurationDays) : 7;
+      
+      // Asignar vencimiento a "daysToAdd" días exactos a partir de ahora
+      computedPlanExpiresAt = new Date(Date.now() + daysToAdd * 24 * 60 * 60 * 1000);
       // Activar el perfil automáticamente
       computedIsActiveProfile = true;
       // Asignar el plan a "free" si viene vacío
