@@ -3,6 +3,7 @@ import User from "../models/User.js";
 import Client from "../models/Client.js";
 import generateToken from "../utils/generateToken.js";
 import Profile from "../models/profile.js"; // Ajusta la ruta según tu estructura
+import verifyTurnstileToken from "../middlewares/verifyTurnstileMiddleware.js";
 
 const parserId = (id) => {
   return mongoose.Types.ObjectId(id);
@@ -10,9 +11,15 @@ const parserId = (id) => {
 
 // Registro de usuario
 export const registerUser = async (req, res) => {
-  const { name, lastName, email, password } = req.body;
+  const { name, lastName, email, password, cfTurnstileToken } = req.body;
 
   try {
+    // 1. Validar Cloudflare Turnstile
+    const isTokenValid = await verifyTurnstileToken(cfTurnstileToken);
+    if (!isTokenValid) {
+      return res.status(400).json({ message: "Verificación de seguridad fallida. Por favor, intenta de nuevo." });
+    }
+
     const userExists = await User.findOne({ email });
     if (userExists) return res.status(400).json({ message: "Usuario ya existe" });
 
@@ -95,8 +102,14 @@ export const updateUser = async (req, res) => {
 
 // Registro de Clientes
 export const registerClient = async (req, res) => {
-  const { name, lastName, email, password } = req.body;
+  const { name, lastName, email, password, cfTurnstileToken } = req.body;
   try {
+    // 1. Validar Cloudflare Turnstile
+    const isTokenValid = await verifyTurnstileToken(cfTurnstileToken);
+    if (!isTokenValid) {
+      return res.status(400).json({ message: "Verificación de seguridad fallida. Por favor, intenta de nuevo." });
+    }
+
     const clientExists = await Client.findOne({ email });
     if (clientExists) return res.status(400).json({ message: "Cliente ya existe" });
 
