@@ -11,14 +11,17 @@ const parserId = (id) => {
 
 // Registro de usuario
 export const registerUser = async (req, res) => {
-  const { name, lastName, email, password, cfTurnstileToken } = req.body;
+  const { name, lastName, email, password, 
+    
+    // cfTurnstileToken 
+  } = req.body;
 
   try {
     // 1. Validar Cloudflare Turnstile
-    const isTokenValid = await verifyTurnstileToken(cfTurnstileToken);
-    if (!isTokenValid) {
-      return res.status(400).json({ message: "Verificación de seguridad fallida. Por favor, intenta de nuevo." });
-    }
+    // const isTokenValid = await verifyTurnstileToken(cfTurnstileToken);
+    // if (!isTokenValid) {
+    //   return res.status(400).json({ message: "Verificación de seguridad fallida. Por favor, intenta de nuevo." });
+    // }
 
     const userExists = await User.findOne({ email });
     if (userExists) return res.status(400).json({ message: "Usuario ya existe" });
@@ -102,13 +105,15 @@ export const updateUser = async (req, res) => {
 
 // Registro de Clientes
 export const registerClient = async (req, res) => {
-  const { name, lastName, email, password, cfTurnstileToken } = req.body;
+  const { name, lastName, email, password, 
+    // cfTurnstileToken 
+  } = req.body;
   try {
     // 1. Validar Cloudflare Turnstile
-    const isTokenValid = await verifyTurnstileToken(cfTurnstileToken);
-    if (!isTokenValid) {
-      return res.status(400).json({ message: "Verificación de seguridad fallida. Por favor, intenta de nuevo." });
-    }
+    // const isTokenValid = await verifyTurnstileToken(cfTurnstileToken);
+    // if (!isTokenValid) {
+    //   return res.status(400).json({ message: "Verificación de seguridad fallida. Por favor, intenta de nuevo." });
+    // }
 
     const clientExists = await Client.findOne({ email });
     if (clientExists) return res.status(400).json({ message: "Cliente ya existe" });
@@ -197,9 +202,18 @@ export const updateClient = async (req, res) => {
 
 // Login
 export const login = async (req, res) => {
-  const { email, password } = req.body;
+  const { email, password, 
+    // cfTurnstileToken 
+
+  } = req.body;
 
   try {
+    // 1. Validar Cloudflare Turnstile
+    // const isTokenValid = await verifyTurnstileToken(cfTurnstileToken);
+    // if (!isTokenValid) {
+    //   return res.status(400).json({ message: "Verificación de seguridad fallida. Por favor, intenta de nuevo." });
+    // }
+
     const user = await User.findOne({ email });
     const clients = await Client.findOne({ email });
     if (!user && !clients) return res.status(400).json({ message: "Credenciales inválidas" });
