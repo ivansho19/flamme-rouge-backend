@@ -63,26 +63,38 @@ export const getAllProfiles = async (req, res) => {
 // Actualizar profile
 export const activeProfile = async (req, res) => {
   const {
-    isActiveProfile
+    isActiveProfile,
+    planExpiresAt
   } = req.body;
 
   const { id } = req.params; // El id del perfil a actualizar
 
   try {
+    const existingProfile = await Profile.findById(id);
+    if (!existingProfile) {
+      return res.status(404).json({ message: "Perfil no encontrado" });
+    }
+
+    let computedPlanExpiresAt = planExpiresAt || existingProfile.planExpiresAt;
+
+    // BUG FIX: Si se activa el perfil pero la fecha de expiración ya pasó, 
+    // el normalizador lo desactivará inmediatamente. 
+    // Le damos 30 días por defecto para evitarlo si es que lo estamos activando.
+    if (isActiveProfile && (!computedPlanExpiresAt || new Date(computedPlanExpiresAt) < new Date())) {
+      computedPlanExpiresAt = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000);
+    }
+
     const activeProfile = await Profile.findByIdAndUpdate(
       id,
       {
         isActiveProfile,
+        planExpiresAt: computedPlanExpiresAt,
         updatedAt: Date.now()
       },
       { new: true }
     );
 
-    if (!activeProfile) {
-      return res.status(404).json({ message: "Perfil no encontrado" });
-    }
-
-    res.status(200).json({ message: "Perfil actualizado correctamente" });
+    res.status(200).json({ message: "Perfil actualizado correctamente", profile: activeProfile });
   } catch (error) {
     res.status(500).json({ message: "Error al actualizar el perfil", error: error.message });
   }
