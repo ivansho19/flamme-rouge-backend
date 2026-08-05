@@ -325,6 +325,16 @@ export const updateProfile = async (req, res) => {
       return res.status(404).json({ message: "Perfil no encontrado" });
     }
 
+    // Verificar permisos: Solo el dueño del perfil o un admin pueden actualizar
+    const isAuthenticated = req.user || req.client;
+    const authId = req.user?._id || req.client?._id;
+    const isOwner = isAuthenticated && existingProfile.objectId && authId && existingProfile.objectId.toString() === authId.toString();
+    const isAdmin = req.user && req.user.isAdmin;
+
+    if (!isOwner && !isAdmin) {
+      return res.status(403).json({ message: "Acceso denegado: No tienes permisos para actualizar este perfil" });
+    }
+
     let computedPlanExpiresAt = planExpiresAt;
     if (plan && JSON.stringify(plan) !== JSON.stringify(existingProfile.plan)) {
       computedPlanExpiresAt = planExpiresAt || new Date(Date.now() + 30 * 24 * 60 * 60 * 1000);
