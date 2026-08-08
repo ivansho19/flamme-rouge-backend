@@ -150,6 +150,7 @@ const mapProfileResponse = (profile) => ({
   cigarette: profile.cigarette,
   isActiveProfile: profile.isActiveProfile,
   isVerify: profile.isVerify,
+  email: profile.email,
   blockedCountries: profile.blockedCountries || []
 });
 
@@ -314,7 +315,8 @@ export const updateProfile = async (req, res) => {
     alcohol,
     cigarette,
     isActiveProfile,
-    blockedCountries
+    blockedCountries, 
+    email
   } = req.body;
 
   const { id } = req.params; // El id del perfil a actualizar
@@ -371,6 +373,7 @@ export const updateProfile = async (req, res) => {
         cigarette,
         isActiveProfile,
         blockedCountries,
+        email,
         updatedAt: Date.now()
       },
       { new: true }
