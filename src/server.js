@@ -11,7 +11,6 @@ const PORT = process.env.PORT || 5000;
 await connectDB();
 
 console.log('MONGO_URI:', process.env.MONGO_URI);
-console.log('STRIPE_SECRET_KEY:', process.env.STRIPE_SECRET_KEY);
 
 const server = http.createServer(app);
 const socketManager = SocketManager.getInstance();
