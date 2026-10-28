@@ -4,27 +4,10 @@ import User from "../models/User.js";
 import Client from "../models/Client.js";
 import generateToken from "../utils/generateToken.js";
 import sendEmail from "../utils/sendEmail.js";
-import {
-  registrationConfirmationTemplate,
-  passwordResetTemplate
-} from "../utils/emailTemplates.js";
+import sendRegistrationEmail from "../utils/sendRegistrationEmail.js";
+import { passwordResetTemplate } from "../utils/emailTemplates.js";
 import Profile from "../models/profile.js"; // Ajusta la ruta según tu estructura
 import verifyTurnstileToken from "../middlewares/verifyTurnstileMiddleware.js";
-
-const sendRegistrationEmail = async ({ name, email, role, plan }) => {
-  try {
-    const template = registrationConfirmationTemplate({ name, email, role, plan });
-    await sendEmail({
-      to: email,
-      subject: template.subject,
-      html: template.html,
-      text: template.text
-    });
-  } catch (error) {
-    // No bloqueamos el registro si falla el correo
-    console.error("Error enviando email de registro:", error);
-  }
-};
 
 const RESET_TOKEN_TTL_MS = 60 * 60 * 1000; // 1 hora
 const MIN_PASSWORD_LENGTH = 8;
@@ -91,12 +74,8 @@ export const registerUser = async (req, res) => {
 
     const fullName = `${user.name} ${user.lastName}`.trim();
 
-    await sendRegistrationEmail({
-      name: fullName,
-      email: user.email,
-      role: "anunciante",
-      plan: plan ?? user.plan
-    });
+    // El correo de bienvenida del anunciante se envía al crear el perfil
+    // (ahí llega el plan definitivo: ["1"] | ["2"] | ["3"] | ["free"]).
 
     res.status(201).json({
       _id: user.id,
