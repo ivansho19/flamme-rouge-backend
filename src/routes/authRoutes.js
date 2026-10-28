@@ -1,7 +1,18 @@
 import express from "express";
-import { registerUser, login, registerClient, 
-  deleteUser, updateUser, getUserByEmail, 
-  deleteClient, updateClient, getClientByEmail } from "../controllers/authController.js";
+import {
+  registerUser,
+  login,
+  registerClient,
+  deleteUser,
+  updateUser,
+  getUserByEmail,
+  deleteClient,
+  updateClient,
+  getClientByEmail,
+  forgotPassword,
+  resetPassword
+} from "../controllers/authController.js";
+import { authRecoveryLimiter } from "../middlewares/rateLimiter.js";
 
 const router = express.Router();
 
@@ -17,5 +28,8 @@ router.post("/updateClient/:id", updateClient);
 router.get("/client/:email", getClientByEmail);
 router.post("/login", login);
 
+// Recuperación de contraseña
+router.post("/forgot-password", authRecoveryLimiter, forgotPassword);
+router.post("/reset-password", authRecoveryLimiter, resetPassword);
 
 export default router;

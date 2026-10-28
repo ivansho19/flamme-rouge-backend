@@ -1,18 +1,66 @@
+import crypto from "crypto";
 import bcrypt from "bcryptjs";
 import User from "../models/User.js";
 import Client from "../models/Client.js";
 import generateToken from "../utils/generateToken.js";
+import sendEmail from "../utils/sendEmail.js";
+import {
+  registrationConfirmationTemplate,
+  passwordResetTemplate
+} from "../utils/emailTemplates.js";
 import Profile from "../models/profile.js"; // Ajusta la ruta según tu estructura
 import verifyTurnstileToken from "../middlewares/verifyTurnstileMiddleware.js";
+
+const sendRegistrationEmail = async ({ name, email, role, plan }) => {
+  try {
+    const template = registrationConfirmationTemplate({ name, email, role, plan });
+    await sendEmail({
+      to: email,
+      subject: template.subject,
+      html: template.html,
+      text: template.text
+    });
+  } catch (error) {
+    // No bloqueamos el registro si falla el correo
+    console.error("Error enviando email de registro:", error);
+  }
+};
+
+const RESET_TOKEN_TTL_MS = 60 * 60 * 1000; // 1 hora
+const MIN_PASSWORD_LENGTH = 8;
+
+const hashResetToken = (token) =>
+  crypto.createHash("sha256").update(token).digest("hex");
+
+const findAccountByEmail = async (email) => {
+  const user = await User.findOne({ email });
+  if (user) return { account: user, model: User };
+
+  const client = await Client.findOne({ email });
+  if (client) return { account: client, model: Client };
+
+  return null;
+};
+
+const findAccountByResetToken = async (hashedToken) => {
+  const query = {
+    resetPasswordToken: hashedToken,
+    resetPasswordExpires: { $gt: Date.now() }
+  };
+
+  const user = await User.findOne(query);
+  if (user) return user;
+
+  return Client.findOne(query);
+};
 
 const parserId = (id) => {
   return mongoose.Types.ObjectId(id);
 };
 
-// Registro de usuario
+// Registro de usuario (anunciante)
 export const registerUser = async (req, res) => {
-  const { name, lastName, email, password, cfTurnstileToken 
-  } = req.body;
+  const { name, lastName, email, password, plan, cfTurnstileToken } = req.body;
 
   try {
     // 1. Validar Cloudflare Turnstile
@@ -26,20 +74,39 @@ export const registerUser = async (req, res) => {
 
     const hashedPassword = await bcrypt.hash(password, 10);
 
+    // El frontend puede enviar string o array (ej. ["1"], "premium")
+    const normalizedPlan = Array.isArray(plan)
+      ? plan.filter(Boolean).join(", ")
+      : plan;
+
     const user = await User.create({
       name,
       lastName,
       email,
-      password: hashedPassword
+      password: hashedPassword,
+      ...(normalizedPlan != null && normalizedPlan !== ""
+        ? { plan: normalizedPlan }
+        : {})
+    });
+
+    const fullName = `${user.name} ${user.lastName}`.trim();
+
+    await sendRegistrationEmail({
+      name: fullName,
+      email: user.email,
+      role: "anunciante",
+      plan: plan ?? user.plan
     });
 
     res.status(201).json({
       _id: user.id,
-      name: user.name + " " + user.lastName,
+      name: fullName,
       email: user.email,
+      plan: user.plan,
       token: generateToken(user._id)
     });
   } catch (error) {
+    console.error("Error en registerUser:", error);
     res.status(500).json({ message: "Error en el servidor" });
   }
 };
@@ -124,9 +191,17 @@ export const registerClient = async (req, res) => {
       password: hashedPassword
     });
 
+    const fullName = `${client.name} ${client.lastName}`.trim();
+
+    await sendRegistrationEmail({
+      name: fullName,
+      email: client.email,
+      role: "cliente"
+    });
+
     res.status(201).json({
       _id: client.id,
-      name: client.name + " " + client.lastName,
+      name: fullName,
       email: client.email,
       token: generateToken(client._id)
     });
@@ -252,5 +327,117 @@ export const login = async (req, res) => {
   } catch (error) {
     console.error('Error en login:', error);
     res.status(500).json({ message: "Error en el servidor" });
+  }
+};
+
+// Solicitar recuperación de contraseña
+export const forgotPassword = async (req, res) => {
+  const { email, cfTurnstileToken } = req.body;
+  const genericMessage =
+    "Si el correo está registrado, recibirás instrucciones para restablecer tu contraseña.";
+
+  try {
+    if (!email) {
+      return res.status(400).json({ message: "El email es obligatorio" });
+    }
+
+    if (cfTurnstileToken) {
+      const isTokenValid = await verifyTurnstileToken(cfTurnstileToken);
+      if (!isTokenValid) {
+        return res.status(400).json({
+          message: "Verificación de seguridad fallida. Por favor, intenta de nuevo."
+        });
+      }
+    }
+
+    const found = await findAccountByEmail(String(email).trim());
+
+    // Respuesta genérica para no revelar si el email existe
+    if (!found) {
+      return res.status(200).json({ message: genericMessage });
+    }
+
+    const rawToken = crypto.randomBytes(32).toString("hex");
+    const hashedToken = hashResetToken(rawToken);
+
+    found.account.resetPasswordToken = hashedToken;
+    found.account.resetPasswordExpires = new Date(Date.now() + RESET_TOKEN_TTL_MS);
+    await found.account.save();
+
+    const frontendUrl = process.env.FRONTEND_URL || "http://localhost:3000";
+    const resetUrl = `${frontendUrl}/reset-password?token=${rawToken}`;
+    const fullName = `${found.account.name || ""} ${found.account.lastName || ""}`.trim();
+    const resetTemplate = passwordResetTemplate({
+      name: fullName || found.account.email,
+      resetUrl
+    });
+
+    await sendEmail({
+      to: found.account.email,
+      subject: resetTemplate.subject,
+      text: resetTemplate.text,
+      html: resetTemplate.html
+    });
+
+    const payload = { message: genericMessage };
+
+    // Solo en desarrollo, facilita probar sin SMTP
+    if (process.env.NODE_ENV !== "production") {
+      payload.resetUrl = resetUrl;
+    }
+
+    return res.status(200).json(payload);
+  } catch (error) {
+    console.error("Error en forgotPassword:", error);
+    return res.status(500).json({ message: "Error en el servidor" });
+  }
+};
+
+// Restablecer contraseña con token
+export const resetPassword = async (req, res) => {
+  const { token, password, cfTurnstileToken } = req.body;
+
+  try {
+    if (!token || !password) {
+      return res.status(400).json({
+        message: "Token y nueva contraseña son obligatorios"
+      });
+    }
+
+    if (password.length < MIN_PASSWORD_LENGTH) {
+      return res.status(400).json({
+        message: `La contraseña debe tener al menos ${MIN_PASSWORD_LENGTH} caracteres`
+      });
+    }
+
+    if (cfTurnstileToken) {
+      const isTokenValid = await verifyTurnstileToken(cfTurnstileToken);
+      if (!isTokenValid) {
+        return res.status(400).json({
+          message: "Verificación de seguridad fallida. Por favor, intenta de nuevo."
+        });
+      }
+    }
+
+    const hashedToken = hashResetToken(token);
+    const account = await findAccountByResetToken(hashedToken);
+
+    if (!account) {
+      return res.status(400).json({
+        message: "Token inválido o expirado"
+      });
+    }
+
+    account.password = await bcrypt.hash(password, 10);
+    account.resetPasswordToken = undefined;
+    account.resetPasswordExpires = undefined;
+    await account.save();
+
+    return res.status(200).json({
+      message: "Contraseña actualizada correctamente"
+    });
+  } catch (error) {
+    console.error("Error en resetPassword:", error);
+    return res.status(500).json({ message: "Error en el servidor" });
   }
 };
