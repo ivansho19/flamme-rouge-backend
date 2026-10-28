@@ -343,7 +343,7 @@ export const forgotPassword = async (req, res) => {
     found.account.resetPasswordExpires = new Date(Date.now() + RESET_TOKEN_TTL_MS);
     await found.account.save();
 
-    const frontendUrl = process.env.FRONTEND_URL || "http://localhost:3000";
+    const frontendUrl = process.env.WEB_URL;
     const resetUrl = `${frontendUrl}/reset-password?token=${rawToken}`;
     const fullName = `${found.account.name || ""} ${found.account.lastName || ""}`.trim();
     const resetTemplate = passwordResetTemplate({
