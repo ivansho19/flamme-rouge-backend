@@ -5,7 +5,7 @@ import Client from "../models/Client.js";
 import generateToken from "../utils/generateToken.js";
 import sendEmail from "../utils/sendEmail.js";
 import sendRegistrationEmail from "../utils/sendRegistrationEmail.js";
-import { passwordResetTemplate } from "../utils/emailTemplates.js";
+import { passwordResetTemplate, buildWebPath } from "../utils/emailTemplates.js";
 import Profile from "../models/profile.js"; // Ajusta la ruta según tu estructura
 import verifyTurnstileToken from "../middlewares/verifyTurnstileMiddleware.js";
 
@@ -74,15 +74,30 @@ export const registerUser = async (req, res) => {
 
     const fullName = `${user.name} ${user.lastName}`.trim();
 
-    // El correo de bienvenida del anunciante se envía al crear el perfil
-    // (ahí llega el plan definitivo: ["1"] | ["2"] | ["3"] | ["free"]).
+    // Bienvenida al crear la cuenta. Si luego crea perfil con plan,
+    // registerProfile envía otro correo con la mini card del plan.
+    const emailResult = await sendRegistrationEmail({
+      name: fullName,
+      email: user.email,
+      role: "anunciante",
+      plan: plan ?? user.plan
+    });
+
+    if (emailResult?.skipped || emailResult?.error) {
+      console.error("[registerUser] Correo de bienvenida NO enviado:", {
+        email: user.email,
+        skipped: emailResult?.skipped,
+        error: emailResult?.error
+      });
+    }
 
     res.status(201).json({
       _id: user.id,
       name: fullName,
       email: user.email,
       plan: user.plan,
-      token: generateToken(user._id)
+      token: generateToken(user._id),
+      emailSent: Boolean(emailResult?.data?.id)
     });
   } catch (error) {
     console.error("Error en registerUser:", error);
@@ -172,17 +187,26 @@ export const registerClient = async (req, res) => {
 
     const fullName = `${client.name} ${client.lastName}`.trim();
 
-    await sendRegistrationEmail({
+    const emailResult = await sendRegistrationEmail({
       name: fullName,
       email: client.email,
       role: "cliente"
     });
 
+    if (emailResult?.skipped || emailResult?.error) {
+      console.error("[registerClient] Correo de bienvenida NO enviado:", {
+        email: client.email,
+        skipped: emailResult?.skipped,
+        error: emailResult?.error
+      });
+    }
+
     res.status(201).json({
       _id: client.id,
       name: fullName,
       email: client.email,
-      token: generateToken(client._id)
+      token: generateToken(client._id),
+      emailSent: Boolean(emailResult?.data?.id)
     });
   } catch (error) {
     console.log("Error en registerClient:", error);
@@ -343,8 +367,7 @@ export const forgotPassword = async (req, res) => {
     found.account.resetPasswordExpires = new Date(Date.now() + RESET_TOKEN_TTL_MS);
     await found.account.save();
 
-    const frontendUrl = process.env.WEB_URL;
-    const resetUrl = `${frontendUrl}/reset-password?token=${rawToken}`;
+    const resetUrl = `${buildWebPath("reset-password")}?token=${rawToken}`;
     const fullName = `${found.account.name || ""} ${found.account.lastName || ""}`.trim();
     const resetTemplate = passwordResetTemplate({
       name: fullName || found.account.email,

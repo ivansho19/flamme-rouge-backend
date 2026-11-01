@@ -104,10 +104,23 @@ const PLAN_ALIASES = {
   promo: "free"
 };
 
-const getWebUrl = () =>
-  process.env.WEB_URL ||
-  process.env.FRONTEND_URL ||
-  "https://flammesrouges.com/";
+/** Base sin slash final: evita // en rutas tipo /reset-password */
+export const getWebBaseUrl = () => {
+  const raw =
+    process.env.WEB_URL ||
+    process.env.FRONTEND_URL ||
+    "https://flammesrouges.com";
+  return String(raw).trim().replace(/\/+$/, "");
+};
+
+/** Home de la web (con slash final) */
+export const getWebUrl = () => `${getWebBaseUrl()}/`;
+
+/** Une base + path sin importar si WEB_URL trae o no el slash final */
+export const buildWebPath = (path = "") => {
+  const cleanPath = String(path).replace(/^\/+/, "");
+  return cleanPath ? `${getWebBaseUrl()}/${cleanPath}` : getWebUrl();
+};
 
 export const resolvePlanKey = (plan) => {
   if (plan == null || plan === false || plan === "") return null;

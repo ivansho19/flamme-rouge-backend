@@ -6,7 +6,10 @@
   "scripts": {
     "dev": "nodemon src/server.js",
     "start": "node src/server.js",
-    "test:email": "node scripts/test-resend-email.js"
+    "test:email": "node scripts/test-resend-email.js",
+    "email:bulk:dry": "node scripts/bulk-send-registration-emails.js",
+    "email:bulk": "node scripts/bulk-send-registration-emails.js --send",
+    "email:resend": "node scripts/resend-one-registration-email.js"
   },
   "dependencies": {
     "bcryptjs": "^2.4.3",
