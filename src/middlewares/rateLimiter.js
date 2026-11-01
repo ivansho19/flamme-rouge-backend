@@ -21,3 +21,14 @@ export const postRateLimiter = rateLimit({
   standardHeaders: true,
   legacyHeaders: false,
 });
+
+export const authRecoveryLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 5,
+  message: {
+    status: 429,
+    message: "Demasiados intentos de recuperación. Intenta de nuevo más tarde."
+  },
+  standardHeaders: true,
+  legacyHeaders: false,
+});

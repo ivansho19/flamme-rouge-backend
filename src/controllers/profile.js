@@ -1,9 +1,9 @@
-
 import mongoose from "mongoose";
 import Profile from "../models/profile.js";
 import IdentifyKYC from "../models/identifyKYC.js";
 import { getRequestCountry, isCountryBlocked, isRequestBlocked } from "../middlewares/geoBlocking.js";
 import { notifyAdmin } from "../utils/notification.js";
+import sendRegistrationEmail from "../utils/sendRegistrationEmail.js";
 
 const parserId = (id) => {
   return mongoose.Types.ObjectId(id);
@@ -108,6 +108,14 @@ export const registerProfile = async (req, res) => {
       message: `Se creo el perfil ${profile.displayName}`,
       targetId: profile._id,
       meta: { profileId: profile._id, objectId: profile.objectId }
+    });
+
+    // Correo de bienvenida con el plan seleccionado (incluye free/promo)
+    await sendRegistrationEmail({
+      name: profile.displayName || profile.email,
+      email: profile.email,
+      role: "anunciante",
+      plan: profile.plan
     });
 
     res.status(201).json({
