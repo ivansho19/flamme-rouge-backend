@@ -128,12 +128,20 @@ export const deleteProfile = async (req, res) => {
 // ==========================================
 export const verifyKYC = async (req, res) => {
   try {
-    const { kycId } = req.params; 
-    const { verify } = req.body; 
+    const { kycId } = req.params;
+    const { verify } = req.body;
+
+    if (typeof verify !== "boolean") {
+      return res.status(400).json({
+        message: "El body debe incluir verify: true | false"
+      });
+    }
+
+    const status = verify ? "verified" : "rejected";
 
     const kyc = await IdentifyKYC.findByIdAndUpdate(
       kycId,
-      { verify },
+      { verify, status },
       { new: true }
     );
 
@@ -147,9 +155,17 @@ export const verifyKYC = async (req, res) => {
       { isVerify: verify }
     );
 
-    res.json({ message: `KYC ${verify ? "aprobado" : "rechazado"}.` });
+    res.json({
+      message: `KYC ${verify ? "aprobado" : "rechazado"}.`,
+      kyc: {
+        _id: kyc._id,
+        userId: kyc.userId,
+        verify: kyc.verify,
+        status: kyc.status
+      }
+    });
   } catch (error) {
-    res.status(500).json({ error: 'Error al cambiar estado.' });
+    res.status(500).json({ error: "Error al cambiar estado." });
   }
 };
 

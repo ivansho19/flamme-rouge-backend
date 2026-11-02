@@ -467,6 +467,64 @@ export const searchProfiles = async (req, res) => {
   }
 };
 
+const getAuthActor = (req) => req.user || req.client || null;
+
+const isAdminActor = (actor) => Boolean(actor?.isAdmin);
+
+const canAccessUserKyc = (req, userId) => {
+  const actor = getAuthActor(req);
+  if (!actor) return false;
+  if (isAdminActor(actor)) return true;
+  return String(actor._id) === String(userId);
+};
+
+const normalizeDocumentImage = (documentImage) => {
+  if (documentImage == null) return undefined;
+  if (Array.isArray(documentImage)) return documentImage;
+  if (typeof documentImage === "object" && documentImage.url && documentImage.public_id) {
+    return [documentImage];
+  }
+  return [];
+};
+
+const imagesChanged = (prevImages = [], nextImages) => {
+  if (nextImages === undefined) return false;
+  return JSON.stringify(prevImages || []) !== JSON.stringify(nextImages || []);
+};
+
+const identityChanged = (kyc, payload) => {
+  const fields = ["fullName", "age", "nationality", "documentType", "documentNumber"];
+  return fields.some((field) => {
+    if (payload[field] === undefined) return false;
+    return String(kyc[field] ?? "") !== String(payload[field] ?? "");
+  });
+};
+
+const mapKycResponse = async (kycDoc) => {
+  const kyc = kycDoc?.toObject ? kycDoc.toObject() : { ...kycDoc };
+  const profile = await Profile.findOne({ objectId: kyc.userId })
+    .select("_id")
+    .lean();
+
+  return {
+    _id: kyc._id,
+    userId: kyc.userId,
+    profileId: profile?._id || null,
+    fullName: kyc.fullName,
+    age: kyc.age,
+    nationality: kyc.nationality,
+    phone: kyc.phone,
+    email: kyc.email,
+    documentType: kyc.documentType || null,
+    documentNumber: kyc.documentNumber ?? null,
+    documentImage: Array.isArray(kyc.documentImage) ? kyc.documentImage : [],
+    verify: Boolean(kyc.verify),
+    status: kyc.status || (kyc.verify ? "verified" : "pending"),
+    createdAt: kyc.createdAt,
+    updatedAt: kyc.updatedAt
+  };
+};
+
 // ==========================================
 // CREATE: Crear perfil KYC
 // ==========================================
@@ -478,15 +536,39 @@ export const createKYC = async (req, res) => {
     nationality,
     phone,
     email,
+    documentType,
+    documentNumber,
     documentImage
   } = req.body;
 
-  const existingKYC = await IdentifyKYC.findOne({ userId });
-    if (existingKYC) {
-      return res.status(400).json({ error: 'El usuario ya tiene un perfil KYC.' });
+  try {
+    if (!userId || !fullName || documentImage == null) {
+      return res.status(400).json({
+        message: "userId, fullName y documentImage son obligatorios"
+      });
     }
 
-  try {
+    if (!canAccessUserKyc(req, userId)) {
+      return res.status(403).json({ message: "No autorizado" });
+    }
+
+    const existingKYC = await IdentifyKYC.findOne({ userId });
+    if (existingKYC) {
+      // Compat: el front histórico espera 400 (no se crea un segundo KYC)
+      return res.status(400).json({
+        error: "El usuario ya tiene un perfil KYC.",
+        message: "El usuario ya tiene un perfil KYC.",
+        kycId: existingKYC._id
+      });
+    }
+
+    const images = normalizeDocumentImage(documentImage);
+    if (!images?.length) {
+      return res.status(400).json({
+        message: "documentImage debe incluir al menos una imagen con url y public_id"
+      });
+    }
+
     const newKYC = await IdentifyKYC.create({
       userId,
       fullName,
@@ -494,28 +576,138 @@ export const createKYC = async (req, res) => {
       nationality,
       phone,
       email,
-      documentImage
+      documentType,
+      documentNumber: documentNumber ?? null,
+      documentImage: images,
+      verify: false,
+      status: "pending"
     });
 
-    res.status(201).json({ message: 'KYC guardado exitosamente', data: newKYC });
+    const kyc = await mapKycResponse(newKYC);
+    res.status(201).json({
+      message: "KYC guardado exitosamente",
+      data: newKYC,
+      kyc
+    });
   } catch (error) {
     if (error.code === 11000) {
-      return res.status(400).json({ error: 'Este documento ya está registrado.' });
+      return res.status(400).json({
+        error: "El usuario ya tiene un perfil KYC.",
+        message: "El usuario ya tiene un perfil KYC."
+      });
     }
-    res.status(500).json({ error: 'Error al procesar el KYC.', detalle: error.message });
+    res.status(500).json({
+      error: "Error al procesar el KYC.",
+      message: "Error al procesar el KYC.",
+      detalle: error.message
+    });
   }
 };
 
 // ==========================================
-// READ: Obtener el KYC del usuario
+// READ: Obtener KYC por userId (dueño o admin)
+// ==========================================
+export const getKYCByUser = async (req, res) => {
+  try {
+    const { userId } = req.params;
+
+    if (!mongoose.Types.ObjectId.isValid(userId)) {
+      return res.status(400).json({ message: "userId inválido" });
+    }
+
+    if (!canAccessUserKyc(req, userId)) {
+      return res.status(403).json({ message: "No autorizado" });
+    }
+
+    const kycDoc = await IdentifyKYC.findOne({ userId });
+    if (!kycDoc) {
+      return res.status(404).json({
+        message: "KYC no encontrado para este usuario",
+        kyc: null
+      });
+    }
+
+    const kyc = await mapKycResponse(kycDoc);
+    return res.status(200).json({ kyc });
+  } catch (error) {
+    return res.status(500).json({
+      message: "Error al obtener el KYC",
+      detalle: error.message
+    });
+  }
+};
+
+// ==========================================
+// READ: Obtener KYC por profileId (dueño o admin)
+// ==========================================
+export const getKYCByProfile = async (req, res) => {
+  try {
+    const { profileId } = req.params;
+
+    if (!mongoose.Types.ObjectId.isValid(profileId)) {
+      return res.status(400).json({ message: "profileId inválido" });
+    }
+
+    const profile = await Profile.findById(profileId).select("objectId").lean();
+    if (!profile) {
+      return res.status(404).json({
+        message: "Perfil no encontrado",
+        kyc: null
+      });
+    }
+
+    if (!canAccessUserKyc(req, profile.objectId)) {
+      return res.status(403).json({ message: "No autorizado" });
+    }
+
+    const kycDoc = await IdentifyKYC.findOne({ userId: profile.objectId });
+    if (!kycDoc) {
+      return res.status(404).json({
+        message: "KYC no encontrado para este usuario",
+        kyc: null
+      });
+    }
+
+    const kyc = await mapKycResponse(kycDoc);
+    return res.status(200).json({ kyc });
+  } catch (error) {
+    return res.status(500).json({
+      message: "Error al obtener el KYC",
+      detalle: error.message
+    });
+  }
+};
+
+// ==========================================
+// READ: Obtener el KYC del usuario autenticado (legacy)
 // ==========================================
 export const getKYC = async (req, res) => {
   try {
-    const kyc = await IdentifyKYC.findOne({ userId: req.userId });
-    if (!kyc) return res.status(404).json({ error: 'Perfil KYC no encontrado.' });
-    res.json({ data: kyc });
+    const actor = getAuthActor(req);
+    if (!actor) {
+      return res.status(401).json({ message: "No autorizado" });
+    }
+
+    // Compat: /getKYC/:id → id = userId. Si no viene, usa el actor autenticado.
+    const userId = req.params.id || actor._id;
+
+    if (!canAccessUserKyc(req, userId)) {
+      return res.status(403).json({ message: "No autorizado" });
+    }
+
+    const kycDoc = await IdentifyKYC.findOne({ userId });
+    if (!kycDoc) {
+      return res.status(404).json({
+        error: "Perfil KYC no encontrado.",
+        message: "KYC no encontrado para este usuario",
+        kyc: null
+      });
+    }
+
+    const kyc = await mapKycResponse(kycDoc);
+    res.json({ data: kycDoc, kyc });
   } catch (error) {
-    res.status(500).json({ error: 'Error al obtener los datos.' });
+    res.status(500).json({ error: "Error al obtener los datos." });
   }
 };
 
@@ -524,6 +716,11 @@ export const getKYC = async (req, res) => {
 // ==========================================
 export const getAllKYC = async (req, res) => {
   try {
+    const actor = getAuthActor(req);
+    if (!isAdminActor(actor)) {
+      return res.status(403).json({ message: "No autorizado" });
+    }
+
     const page = Number(req.query.page) || 1;
     const limit = Number(req.query.limit) || 10;
     const safePage = page < 1 ? 1 : page;
@@ -537,39 +734,108 @@ export const getAllKYC = async (req, res) => {
       .limit(safeLimit)
       .lean();
 
+    const data = await Promise.all(kycs.map((item) => mapKycResponse(item)));
+
     res.status(200).json({
       total,
       page: safePage,
       limit: safeLimit,
       totalPages: Math.ceil(total / safeLimit),
-      data: kycs
+      data
     });
   } catch (error) {
-    res.status(500).json({ error: 'Error al obtener los datos.', detalle: error.message });
+    res.status(500).json({
+      error: "Error al obtener los datos.",
+      detalle: error.message
+    });
   }
 };
 
 // ==========================================
-// UPDATE: Actualizar KYC (Ej: si se rechazó y sube nuevo documento)
+// UPDATE: Actualizar KYC por kycId (dueño o admin)
 // ==========================================
 export const updateKYC = async (req, res) => {
-  const { kycId } = req.params; 
+  const kycId = req.params.kycId || req.params.id;
   const {
     fullName,
     age,
     nationality,
     phone,
     email,
+    documentType,
+    documentNumber,
     documentImage
   } = req.body;
 
   try {
-    const kyc = await IdentifyKYC.findByIdAndUpdate(kycId, { fullName, age, nationality, phone, email, documentImage }, { new: true });
-    if (!kyc) return res.status(404).json({ error: 'KYC no encontrado.' });
+    if (!mongoose.Types.ObjectId.isValid(kycId)) {
+      return res.status(400).json({ message: "kycId inválido" });
+    }
 
-    res.json({ message: 'KYC actualizado exitosamente.', data: kyc });
+    const existing = await IdentifyKYC.findById(kycId);
+    if (!existing) {
+      return res.status(404).json({
+        error: "KYC no encontrado.",
+        message: "KYC no encontrado."
+      });
+    }
+
+    if (!canAccessUserKyc(req, existing.userId)) {
+      return res.status(403).json({ message: "No autorizado" });
+    }
+
+    const normalizedImages = normalizeDocumentImage(documentImage);
+    const payload = {
+      fullName,
+      age,
+      nationality,
+      phone,
+      email,
+      documentType,
+      documentNumber
+    };
+
+    const updates = {};
+    Object.entries(payload).forEach(([key, value]) => {
+      if (value !== undefined) updates[key] = value;
+    });
+    if (normalizedImages !== undefined && documentImage !== undefined) {
+      updates.documentImage = normalizedImages;
+    }
+
+    const shouldReopenReview =
+      imagesChanged(existing.documentImage, updates.documentImage) ||
+      identityChanged(existing, updates);
+
+    if (shouldReopenReview) {
+      updates.verify = false;
+      updates.status = "pending";
+    }
+
+    const kycDoc = await IdentifyKYC.findByIdAndUpdate(kycId, updates, {
+      new: true,
+      runValidators: true
+    });
+
+    if (shouldReopenReview) {
+      await Profile.findOneAndUpdate(
+        { objectId: kycDoc.userId },
+        { isVerify: false }
+      );
+    }
+
+    const kyc = await mapKycResponse(kycDoc);
+    res.status(200).json({
+      message: "KYC actualizado correctamente",
+      data: kycDoc,
+      kyc
+    });
   } catch (error) {
-    res.status(500).json({ error: 'Error al actualizar el KYC.', detalle: error.message });
+    res.status(500).json({
+      error: "Error al actualizar el KYC.",
+      message: "Error al actualizar el KYC.",
+      detalle: error.message
+    });
   }
 };
 
