@@ -277,7 +277,41 @@ const getPlanPriority = (plan) => {
   return 0;
 };
 
-// Buscar todos los profiles ordenados por prioridad de plan (3 > 2 > 1)
+/** Fisher–Yates shuffle (nuevo orden en cada petición) */
+const shuffleInPlace = (list) => {
+  for (let i = list.length - 1; i > 0; i -= 1) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [list[i], list[j]] = [list[j], list[i]];
+  }
+  return list;
+};
+
+/**
+ * Orden público del home:
+ * 1) VIP (plan 3) rotan entre sí
+ * 2) Pro (plan 2) rotan entre sí
+ * 3) Básico / resto quedan en su orden original (sin rotar)
+ * VIP siempre arriba de Pro; Pro arriba del resto.
+ */
+const orderProfilesWithVipProRotation = (profiles) => {
+  const vip = [];
+  const pro = [];
+  const rest = [];
+
+  for (const profile of profiles) {
+    const priority = getPlanPriority(profile.plan);
+    if (priority === 3) vip.push(profile);
+    else if (priority === 2) pro.push(profile);
+    else rest.push(profile);
+  }
+
+  shuffleInPlace(vip);
+  shuffleInPlace(pro);
+
+  return [...vip, ...pro, ...rest];
+};
+
+// Buscar todos los profiles: VIP/Pro rotan en cada request; Básico fijo al final del bloque
 export const getAllProfiles = async (req, res) => {
   try {
     await normalizeExpiredProfiles();
@@ -289,8 +323,7 @@ export const getAllProfiles = async (req, res) => {
       ? profiles.filter((profile) => !isCountryBlocked(requestCountry, profile.blockedCountries))
       : profiles;
 
-    visibleProfiles.sort((a, b) => getPlanPriority(b.plan) - getPlanPriority(a.plan));
-    res.status(200).json(visibleProfiles);
+    res.status(200).json(orderProfilesWithVipProRotation(visibleProfiles));
   } catch (error) {
     console.log("Error en getAllProfiles:", error);
     res.status(500).json({ message: "Error en el servidor" });
